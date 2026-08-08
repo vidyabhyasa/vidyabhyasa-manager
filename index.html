@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vidyabhyasa — Study Center Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16324F;
+    --ink-light:#2C4A6E;
+    --paper:#FBF8F2;
+    --paper-2:#F3EEE2;
+    --card:#FFFFFF;
+    --line:#E4DFD1;
+    --amber:#E3A857;
+    --amber-dark:#8A5A16;
+    --free:#6B9080;
+    --free-bg:#E7F0EB;
+    --free-text:#2F5548;
+    --occ:#C1584B;
+    --occ-bg:#FBEAE7;
+    --occ-text:#7A2E24;
+    --warn:#D9A441;
+    --warn-bg:#FBF1DD;
+    --warn-text:#7A5613;
+    --muted:#7C7566;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Inter',sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{font-family:'Fraunces',serif;font-weight:500;margin:0;}
+  .app{display:flex;min-height:100vh;}
+  .sidebar{
+    width:220px;background:var(--ink);color:#EFE7D6;padding:28px 0;
+    flex-shrink:0;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;
+  }
+  .brand{padding:0 24px 24px;border-bottom:1px solid rgba(239,231,214,0.15);margin-bottom:16px;}
+  .brand h1{font-size:20px;color:#fff;letter-spacing:0.2px;}
+  .brand p{font-size:12px;color:#B9C4D4;margin-top:4px;font-family:'Inter',sans-serif;}
+  .nav-item{
+    display:flex;align-items:center;gap:10px;padding:12px 24px;font-size:14px;cursor:pointer;
+    color:#CBD5E1;border-left:3px solid transparent;transition:background .15s;
+  }
+  .nav-item:hover{background:rgba(255,255,255,0.05);}
+  .nav-item.active{background:rgba(227,168,87,0.12);border-left-color:var(--amber);color:#fff;font-weight:500;}
+  .nav-icon{width:16px;text-align:center;font-size:14px;}
+  main{flex:1;padding:36px 40px;max-width:1180px;}
+  .top-header{
+    display:flex;align-items:center;justify-content:flex-end;gap:14px;
+    margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--line);
+  }
+  .top-header .who{font-size:13px;color:var(--muted);}
+  .top-header .who strong{color:var(--ink);}
+  .top-header a.logout-link{color:var(--amber-dark);font-size:13px;font-weight:500;text-decoration:none;}
+  .page-head{margin-bottom:28px;}
+  .page-head h2{font-size:24px;color:var(--ink);}
+  .page-head p{color:var(--muted);font-size:14px;margin-top:6px;}
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;}
+  .metric-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;}
+  .metric-card .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;}
+  .metric-card .value{font-family:'Fraunces',serif;font-size:28px;margin-top:4px;color:var(--ink);}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px 28px;margin-bottom:20px;}
+  label{display:block;font-size:13px;font-weight:500;color:var(--ink-light);margin-bottom:6px;}
+  input,select{
+    width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;
+    font-size:14px;font-family:'Inter',sans-serif;background:var(--paper-2);color:var(--ink);margin-bottom:16px;
+  }
+  input:focus,select:focus{outline:none;border-color:var(--amber);background:#fff;}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:0 20px;}
+  .btn{
+    display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:8px;border:1px solid var(--ink);
+    background:var(--ink);color:#fff;font-size:14px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;
+  }
+  .btn:hover{background:var(--ink-light);}
+  .btn-outline{background:transparent;color:var(--ink);border:1px solid var(--line);}
+  .btn-outline:hover{background:var(--paper-2);}
+  .btn-sm{padding:6px 12px;font-size:12px;}
+  .btn-wa{background:#3F7856;border-color:#3F7856;}
+  .btn-wa:hover{background:#2F5C41;}
+  .floor-tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+  .floor-tab{padding:8px 16px;border-radius:8px;border:1px solid var(--line);background:var(--card);font-size:13px;cursor:pointer;color:var(--muted);}
+  .floor-tab.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .legend{display:flex;gap:18px;margin-bottom:16px;font-size:12px;color:var(--muted);}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block;}
+  .seat-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:8px;}
+  .seat{
+    aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:transform .1s;
+  }
+  .seat:hover{transform:scale(1.06);}
+  .seat.free{background:var(--free-bg);color:var(--free-text);border-color:#CBE0D3;}
+  .seat.occ{background:var(--occ-bg);color:var(--occ-text);border-color:#EFC7C0;}
+  .seat.warn{background:var(--warn-bg);color:var(--warn-text);border-color:#F0DBA5;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;padding:10px 12px;color:var(--muted);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:0.3px;border-bottom:1px solid var(--line);}
+  td{padding:12px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  .badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;}
+  .badge.active{background:var(--free-bg);color:var(--free-text);}
+  .badge.expiring{background:var(--warn-bg);color:var(--warn-text);}
+  .badge.expired{background:var(--occ-bg);color:var(--occ-text);}
+  .filter-row{display:flex;gap:8px;margin-bottom:18px;align-items:center;flex-wrap:wrap;}
+  .filter-btn{padding:7px 14px;border-radius:20px;border:1px solid var(--line);background:var(--card);font-size:12px;cursor:pointer;color:var(--muted);}
+  .filter-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .search-box{margin-left:auto;width:220px;}
+  .search-box input{margin:0;}
+  .modal-overlay{position:fixed;inset:0;background:rgba(22,50,79,0.45);display:flex;align-items:center;justify-content:center;z-index:50;}
+  .modal{background:#fff;border-radius:14px;padding:26px 28px;width:380px;max-width:90vw;}
+  .modal h3{font-size:18px;margin-bottom:4px;}
+  .modal .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;}
+  .modal .row span:first-child{color:var(--muted);}
+  .modal-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;}
+  .empty{color:var(--muted);font-size:14px;padding:30px 0;text-align:center;}
+  .toast{
+    position:fixed;bottom:24px;right:24px;background:var(--ink);color:#fff;padding:12px 20px;border-radius:8px;
+    font-size:13px;z-index:100;opacity:0;transform:translateY(10px);transition:all .25s;
+  }
+  .toast.show{opacity:1;transform:translateY(0);}
+  .notice{font-size:12px;color:var(--muted);background:var(--paper-2);border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin-bottom:20px;}
+  @media(max-width:800px){
+    .app{flex-direction:column;}
+    .sidebar{width:100%;height:auto;position:relative;padding:16px;display:flex;align-items:center;justify-content:space-between;}
+    .brand{border:none;padding:0;margin:0;}
+    .nav-item{padding:8px 12px;}
+    main{padding:20px;}
+    .metrics{grid-template-columns:repeat(2,1fr);}
+    .seat-grid{grid-template-columns:repeat(6,1fr);}
+    .grid-2{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="brand">
+      <h1>Vidyabhyasa</h1>
+      <p>Study center, Mysuru</p>
+    </div>
+    <div id="nav">
+      <div class="nav-item" data-page="availability"><span class="nav-icon">◎</span> Availability</div>
+      <div class="nav-item auth-only" data-page="dashboard"><span class="nav-icon">▦</span> Dashboard</div>
+      <div class="nav-item" data-page="register"><span class="nav-icon">＋</span> New registration</div>
+      <div class="nav-item auth-only" data-page="subscriptions"><span class="nav-icon">⏰</span> Subscriptions</div>
+    </div>
+  </div>
+
+  <main>
+    <div class="top-header" id="top-header"></div>
+    <div id="main"></div>
+  </main>
+</div>
+
+<div id="modal-root"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// API helpers — everything talks to the /api/* serverless
+// functions (same origin as this page once deployed on Vercel).
+// ============================================================
+async function apiGet(path){
+  const res = await fetch(path, { credentials: 'same-origin' });
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+async function apiPost(path, body){
+  const res = await fetch(path, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {})
+  });
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+// ============================================================
+// Static config
+// ============================================================
+const FLOORS = [
+  { id:'F1', label:'First floor', sub:'Non-AC', count:87 },
+  { id:'F2', label:'Second floor', sub:'AC', count:43 }
+];
+const LOCKERS = [
+  { id:'L1', label:'1st floor lockers', sub:'', count:32 },
+  { id:'L2', label:'2nd floor lockers', sub:'', count:16 }
+];
+const LOCKER_MONTHLY = 100;
+const LOCKER_DEPOSIT = 200;
+const SEAT_TO_LOCKER_FLOOR = { F1:'L1', F2:'L2' };
+const PAYMENT_PRESETS = [1000, 1900, 2800];
+const GATED_PAGES = ['dashboard', 'subscriptions'];
+
+// ============================================================
+// State
+// ============================================================
+let session = null;               // { role, label } once logged in
+let students = [];                 // full records — staff only
+let freeSeats = [];                // [{floor,num,resourceId}] — public
+let freeLockers = [];
+let currentPage = 'availability';
+let dashView = 'seats';
+let currentFloor = 'F1';
+let currentLockerFloor = 'L1';
+let availView = 'seats';
+let availFloorFilter = 'all';
+let regFloor = 'F1';
+let subFilter = 'all';
+let subSearch = '';
+
+// ============================================================
+// Date / status helpers
+// ============================================================
+function seatLabel(floorId, num){ return floorId + '-' + String(num).padStart(2,'0'); }
+function lockerLabel(floorId, num){ return floorId + '-' + String(num).padStart(2,'0'); }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function addMonths(dateStr, months){
+  const d = new Date(dateStr);
+  d.setMonth(d.getMonth() + Number(months));
+  return d.toISOString().slice(0,10);
+}
+function daysUntil(dateStr){
+  const today = new Date(todayISO());
+  const target = new Date(dateStr);
+  return Math.round((target - today) / 86400000);
+}
+function statusForDate(dateStr){
+  const d = daysUntil(dateStr);
+  if (d < 0) return 'expired';
+  if (d <= 2) return 'expiring';
+  return 'active';
+}
+function statusOf(student){ return statusForDate(student.expiryDate); }
+function lockerStatusOf(student){ return student.lockerExpiryDate ? statusForDate(student.lockerExpiryDate) : null; }
+
+function occupantOf(floorId, seatNum){
+  const label = seatLabel(floorId, seatNum);
+  return students.find(s => s.seatId === label && statusOf(s) !== 'expired');
+}
+function lockerOccupantOf(floorId, num){
+  const label = lockerLabel(floorId, num);
+  return students.find(s => s.lockerId === label && lockerStatusOf(s) !== 'expired');
+}
+
+function paymentAmountOptionsHTML(selected){
+  const opts = PAYMENT_PRESETS.map(v=>`<option value="${v}" ${String(v)===String(selected)?'selected':''}>₹${v}</option>`).join('');
+  return opts + `<option value="other" ${selected==='other'?'selected':''}>Other (enter amount)</option>`;
+}
+function totalPaid(student){
+  return (student.payments || []).reduce((a,p)=>a+Number(p.amount||0), 0);
+}
+
+function waLink(student, kind){
+  let phone = (student.phone || '').replace(/\D/g,'');
+  if (phone.length === 10) phone = '91' + phone;
+  const daysLeft = daysUntil(student.expiryDate);
+  let msg;
+  if (kind === 'expired'){
+    msg = 'Hi ' + student.name + ', your Vidyabhyasa study center seat subscription expired on ' + student.expiryDate + '. Please renew to continue holding seat ' + student.seatId + '.';
+  } else {
+    msg = 'Hi ' + student.name + ', a reminder that your Vidyabhyasa study center subscription expires on ' + student.expiryDate + ' (' + Math.max(daysLeft,0) + ' day(s) left). Please renew soon to keep seat ' + student.seatId + '.';
+  }
+  return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg);
+}
+function lockerWaLink(student, kind){
+  let phone = (student.phone || '').replace(/\D/g,'');
+  if (phone.length === 10) phone = '91' + phone;
+  const daysLeft = daysUntil(student.lockerExpiryDate);
+  let msg;
+  if (kind === 'expired'){
+    msg = 'Hi ' + student.name + ', your Vidyabhyasa locker (' + student.lockerId + ') subscription expired on ' + student.lockerExpiryDate + '. Please renew to keep the locker.';
+  } else {
+    msg = 'Hi ' + student.name + ', a reminder that your Vidyabhyasa locker (' + student.lockerId + ') subscription expires on ' + student.lockerExpiryDate + ' (' + Math.max(daysLeft,0) + ' day(s) left). Please renew soon.';
+  }
+  return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg);
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+// ============================================================
+// Image helpers (resize before upload)
+// ============================================================
+function readFileAsDataURL(file){
+  return new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onload = ()=> resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+function resizeImageDataURL(dataUrl, maxDim, quality){
+  return new Promise((resolve)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      let w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim){
+        if (w > h){ h = Math.round(h * maxDim / w); w = maxDim; }
+        else { w = Math.round(w * maxDim / h); h = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = ()=> resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+// ============================================================
+// Data loading
+// ============================================================
+async function loadPublicAvailability(){
+  try{
+    const data = await apiGet('/api/availability');
+    freeSeats = data.freeSeats || [];
+    freeLockers = data.freeLockers || [];
+  }catch(e){
+    freeSeats = []; freeLockers = [];
+  }
+}
+function isSeatFree(floorId, num){
+  const label = seatLabel(floorId, num);
+  return freeSeats.some(r => r.resourceId === label);
+}
+function isLockerFree(floorId, num){
+  const label = lockerLabel(floorId, num);
+  return freeLockers.some(r => r.resourceId === label);
+}
+
+async function loadFullStudents(){
+  try{
+    const data = await apiGet('/api/students');
+    const paymentsByStudent = {};
+    (data.payments || []).forEach(p=>{
+      (paymentsByStudent[p.studentId] = paymentsByStudent[p.studentId] || []).push({ date: p.date, amount: Number(p.amount), note: p.note });
+    });
+    students = (data.students || []).map(s => ({ ...s, payments: paymentsByStudent[s.id] || [] }));
+  }catch(e){
+    students = [];
+  }
+}
+
+async function resolveSession(){
+  try{
+    const data = await apiGet('/api/me');
+    session = data.session || null;
+    if (session) await loadFullStudents();
+  }catch(e){
+    session = null;
+  }
+}
+
+// ============================================================
+// Render — router
+// ============================================================
+function render(){
+  document.querySelectorAll('.nav-item').forEach(el=>{
+    el.classList.toggle('active', el.dataset.page === currentPage);
+  });
+  document.querySelectorAll('.nav-item.auth-only').forEach(el=>{
+    el.style.display = session ? 'flex' : 'none';
+  });
+  updateTopHeader();
+  const main = document.getElementById('main');
+  if (GATED_PAGES.includes(currentPage) && !session){
+    main.innerHTML = renderLogin();
+  } else if (currentPage === 'dashboard') main.innerHTML = renderDashboard();
+  else if (currentPage === 'availability') main.innerHTML = renderAvailability();
+  else if (currentPage === 'register') main.innerHTML = renderRegister();
+  else if (currentPage === 'subscriptions') main.innerHTML = renderSubscriptions();
+  attachHandlers();
+}
+
+function updateTopHeader(){
+  const box = document.getElementById('top-header');
+  if (!box) return;
+  if (session){
+    box.innerHTML = `
+      <span class="who">Signed in as <strong>${session.label}</strong> (${session.role})</span>
+      <a href="#" id="logout-link" class="logout-link">Log out</a>`;
+    document.getElementById('logout-link').onclick = async (e)=>{
+      e.preventDefault();
+      await apiPost('/api/logout', {}).catch(()=>{});
+      session = null;
+      currentPage = 'availability';
+      render();
+    };
+  } else {
+    box.innerHTML = `<button class="btn" id="header-login-btn">Staff login</button>`;
+    document.getElementById('header-login-btn').onclick = ()=>{ currentPage = 'dashboard'; render(); };
+  }
+}
+
+function renderLogin(){
+  const pageLabels = { dashboard:'the dashboard', subscriptions:'subscriptions' };
+  return `
+    <div class="page-head">
+      <h2>Staff login</h2>
+      <p>Sign in to access ${pageLabels[currentPage] || 'this page'}.</p>
+    </div>
+    <div class="card" style="max-width:340px;">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="you@vidyabhyasa.example" autocomplete="username">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="Password" autocomplete="current-password">
+      <button class="btn" id="login-submit" style="width:100%;justify-content:center;">Log in</button>
+      <p id="login-error" style="color:var(--occ-text);font-size:12px;margin-top:12px;display:none;"></p>
+    </div>
+  `;
+}
+
+// ============================================================
+// Dashboard (staff only — full personal detail)
+// ============================================================
+function renderDashboard(){
+  const totalSeats = FLOORS.reduce((a,f)=>a+f.count,0);
+  let seatsOccupied = 0, seatsExpiring = 0;
+  FLOORS.forEach(f=>{
+    for(let i=1;i<=f.count;i++){
+      const occ = occupantOf(f.id, i);
+      if (occ){ seatsOccupied++; if (statusOf(occ) === 'expiring') seatsExpiring++; }
+    }
+  });
+  const totalLockers = LOCKERS.reduce((a,f)=>a+f.count,0);
+  let lockersOccupied = 0, lockersExpiring = 0;
+  LOCKERS.forEach(f=>{
+    for(let i=1;i<=f.count;i++){
+      const occ = lockerOccupantOf(f.id, i);
+      if (occ){ lockersOccupied++; if (lockerStatusOf(occ) === 'expiring') lockersExpiring++; }
+    }
+  });
+
+  const isLockers = dashView === 'lockers';
+  const total = isLockers ? totalLockers : totalSeats;
+  const occupied = isLockers ? lockersOccupied : seatsOccupied;
+  const expiringSoon = isLockers ? lockersExpiring : seatsExpiring;
+  const free = total - occupied;
+  const list = isLockers ? LOCKERS : FLOORS;
+  const activeFloorId = isLockers ? currentLockerFloor : currentFloor;
+  const floor = list.find(f=>f.id===activeFloorId) || list[0];
+
+  let cells = '';
+  for(let i=1;i<=floor.count;i++){
+    const occ = isLockers ? lockerOccupantOf(floor.id, i) : occupantOf(floor.id, i);
+    const st = occ ? (isLockers ? lockerStatusOf(occ) : statusOf(occ)) : null;
+    const cls = !occ ? 'free' : (st === 'expiring' ? 'warn' : 'occ');
+    const kindAttr = isLockers ? 'locker' : 'seat';
+    cells += '<div class="seat '+cls+'" data-kind="'+kindAttr+'" data-floor="'+floor.id+'" data-num="'+i+'" title="'+ (occ ? occ.name : 'Free') +'">'+i+'</div>';
+  }
+
+  return `
+    <div class="page-head">
+      <h2>${isLockers ? 'Locker dashboard' : 'Seat dashboard'}</h2>
+      <p>Live view of occupied and free ${isLockers ? 'lockers' : 'seats'} across both floors.</p>
+    </div>
+    <div class="floor-tabs">
+      <div class="floor-tab ${!isLockers?'active':''}" data-view="seats">Seats</div>
+      <div class="floor-tab ${isLockers?'active':''}" data-view="lockers">Lockers</div>
+    </div>
+    <div class="metrics">
+      <div class="metric-card"><div class="label">Total ${isLockers?'lockers':'seats'}</div><div class="value">${total}</div></div>
+      <div class="metric-card"><div class="label">Occupied</div><div class="value">${occupied}</div></div>
+      <div class="metric-card"><div class="label">Free</div><div class="value">${free}</div></div>
+      <div class="metric-card"><div class="label">Expiring in 2 days</div><div class="value">${expiringSoon}</div></div>
+    </div>
+    <div class="card">
+      <div class="floor-tabs">
+        ${list.map(f=>`<div class="floor-tab ${f.id===activeFloorId?'active':''}" data-floor="${f.id}">${f.label}${f.sub?' · '+f.sub:''} (${f.count})</div>`).join('')}
+      </div>
+      <div class="legend">
+        <span><span class="dot" style="background:var(--free)"></span>Free</span>
+        <span><span class="dot" style="background:var(--occ)"></span>Occupied</span>
+        <span><span class="dot" style="background:var(--warn)"></span>Expiring within 2 days</span>
+      </div>
+      <div class="seat-grid">${cells}</div>
+    </div>
+  `;
+}
+
+// ============================================================
+// Availability (public — FREE seats/lockers only, nothing else)
+// ============================================================
+function renderAvailability(){
+  const isLockers = availView === 'lockers';
+  const list = isLockers ? LOCKERS : FLOORS;
+  const floorsToShow = availFloorFilter === 'all' ? list : list.filter(f=>f.id===availFloorFilter);
+
+  const section = (f) => {
+    const freeNums = [];
+    for(let i=1;i<=f.count;i++){
+      const free = isLockers ? isLockerFree(f.id, i) : isSeatFree(f.id, i);
+      if (free) freeNums.push(i);
+    }
+    const cells = freeNums.map(i =>
+      `<div class="seat free" data-kind="${isLockers?'locker':'seat'}" data-floor="${f.id}" data-num="${i}" title="Free">${i}</div>`
+    ).join('');
+    return `
+      <div class="card">
+        <h3 style="font-size:15px;margin-bottom:14px;">${f.label}${f.sub?' · '+f.sub:''} <span style="color:var(--muted);font-weight:400;font-size:13px;">(${freeNums.length} free)</span></h3>
+        <div class="seat-grid">${cells || '<p class="empty" style="grid-column:1/-1;">No free spots on this floor right now.</p>'}</div>
+      </div>`;
+  };
+
+  const totalFreeSeats = freeSeats.length;
+  const totalFreeLockers = freeLockers.length;
+
+  return `
+    <div class="page-head">
+      <h2>Availability</h2>
+      <p>Free seats and lockers right now — click one to start a registration.</p>
+    </div>
+    <div class="metrics">
+      <div class="metric-card"><div class="label">Free seats</div><div class="value">${totalFreeSeats}</div></div>
+      <div class="metric-card"><div class="label">Free lockers</div><div class="value">${totalFreeLockers}</div></div>
+    </div>
+    <div class="floor-tabs">
+      <div class="floor-tab ${!isLockers?'active':''}" data-availview="seats">Seats</div>
+      <div class="floor-tab ${isLockers?'active':''}" data-availview="lockers">Lockers</div>
+    </div>
+    <div class="floor-tabs" id="avail-floor-filter">
+      <div class="floor-tab ${availFloorFilter==='all'?'active':''}" data-availfloor="all">All floors</div>
+      ${list.map(f=>`<div class="floor-tab ${availFloorFilter===f.id?'active':''}" data-availfloor="${f.id}">${f.label}${f.sub?' · '+f.sub:''}</div>`).join('')}
+    </div>
+    ${floorsToShow.map(f=>section(f)).join('')}
+  `;
+}
+
+// ============================================================
+// New registration (public)
+// ============================================================
+function renderRegister(){
+  const floor = FLOORS.find(f=>f.id===regFloor) || FLOORS[0];
+  let seatOptions = '';
+  let freeCount = 0;
+  for(let i=1;i<=floor.count;i++){
+    if (isSeatFree(floor.id, i)){
+      seatOptions += `<option value="${seatLabel(floor.id,i)}">Seat ${i}</option>`;
+      freeCount++;
+    }
+  }
+  const lockerFloorId = SEAT_TO_LOCKER_FLOOR[regFloor];
+  const lockerFloor = LOCKERS.find(f=>f.id===lockerFloorId);
+  let lockerOptions = '<option value="">No locker</option>';
+  if (lockerFloor){
+    for(let i=1;i<=lockerFloor.count;i++){
+      if (isLockerFree(lockerFloor.id, i)){
+        lockerOptions += `<option value="${lockerLabel(lockerFloor.id,i)}">Locker ${i}</option>`;
+      }
+    }
+  }
+
+  return `
+    <div class="page-head">
+      <h2>New registration</h2>
+      <p>Add a new student and assign a seat.</p>
+    </div>
+    <div class="card">
+      <form id="reg-form">
+        <div class="grid-2">
+          <div>
+            <label>Full name</label>
+            <input type="text" id="f-name" required placeholder="Student's full name">
+          </div>
+          <div>
+            <label>Phone number</label>
+            <input type="tel" id="f-phone" required placeholder="10-digit mobile number">
+          </div>
+        </div>
+        <div class="grid-2">
+          <div>
+            <label>Email ID</label>
+            <input type="email" id="f-email" placeholder="name@example.com">
+          </div>
+          <div>
+            <label>Upload ID proof (photo or scan)</label>
+            <input type="file" id="f-id-file" accept="image/*">
+            <div id="f-id-preview" style="display:none;margin-top:-8px;margin-bottom:16px;"></div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div>
+            <label>Exam preparing for</label>
+            <input type="text" id="f-exam" required placeholder="e.g. KPSC, UPSC, KAS">
+          </div>
+          <div>
+            <label>Date of joining</label>
+            <input type="date" id="f-join" required value="${todayISO()}">
+          </div>
+        </div>
+        <div class="grid-2">
+          <div>
+            <label>Subscription (months)</label>
+            <select id="f-months">
+              ${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}">${m} month${m>1?'s':''}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <label>Seat floor</label>
+        <div class="floor-tabs" id="reg-floor-tabs">
+          ${FLOORS.map(f=>`<div class="floor-tab ${f.id===regFloor?'active':''}" data-regfloor="${f.id}">${f.label} · ${f.sub}</div>`).join('')}
+        </div>
+        <div class="grid-2">
+          <div>
+            <label>Available seats on ${floor.label} (${freeCount} free of ${floor.count})</label>
+            <select id="f-seat">${seatOptions || '<option value="">No free seats on this floor</option>'}</select>
+          </div>
+          <div>
+            <label>Locker on ${floor.label} (optional — ₹${LOCKER_MONTHLY}/month + ₹${LOCKER_DEPOSIT} refundable deposit)</label>
+            <select id="f-locker">${lockerOptions}</select>
+          </div>
+        </div>
+        <div id="f-locker-months-wrap" style="display:none;">
+          <label>Locker subscription (months)</label>
+          <select id="f-locker-months">
+            ${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}">${m} month${m>1?'s':''}</option>`).join('')}
+          </select>
+        </div>
+        <div class="grid-2">
+          <div>
+            <label>Amount paid</label>
+            <select id="f-amount">${paymentAmountOptionsHTML()}</select>
+          </div>
+          <div id="f-amount-other-wrap" style="display:none;">
+            <label>Enter amount (₹)</label>
+            <input type="number" id="f-amount-other" min="0" placeholder="e.g. 1500">
+          </div>
+        </div>
+        <button type="submit" class="btn" id="reg-submit-btn">Register student</button>
+      </form>
+    </div>
+  `;
+}
+
+// ============================================================
+// Subscriptions (staff only)
+// ============================================================
+function renderSubscriptions(){
+  let list = students.slice().sort((a,b)=> new Date(a.expiryDate) - new Date(b.expiryDate));
+  if (subFilter !== 'all') list = list.filter(s => statusOf(s) === subFilter);
+  if (subSearch.trim()){
+    const q = subSearch.trim().toLowerCase();
+    list = list.filter(s => s.name.toLowerCase().includes(q) || s.phone.includes(q) || s.seatId.toLowerCase().includes(q));
+  }
+
+  const rows = list.map(s=>{
+    const st = statusOf(s);
+    const d = daysUntil(s.expiryDate);
+    const daysLabel = st==='expired' ? Math.abs(d)+'d overdue' : d+'d left';
+    const lst = lockerStatusOf(s);
+    const lockerCell = s.lockerId
+      ? `${s.lockerId}<br><span class="badge ${lst}" style="margin-top:2px;display:inline-block;">${lst}</span>`
+      : '<span style="color:var(--muted)">—</span>';
+    return `
+      <tr>
+        <td>${s.name}<br><span style="color:var(--muted);font-size:12px">${s.phone}</span></td>
+        <td>${s.seatId}</td>
+        <td>${lockerCell}</td>
+        <td>${s.examPrep}</td>
+        <td>${s.expiryDate}<br><span style="color:var(--muted);font-size:12px">${daysLabel}</span></td>
+        <td><span class="badge ${st}">${st}</span></td>
+        <td>₹${totalPaid(s)}</td>
+        <td>
+          <button class="btn btn-sm btn-outline" data-payment="${s.id}">Record payment</button>
+          <a class="btn btn-sm btn-wa" href="${waLink(s, st)}" target="_blank" rel="noopener">WhatsApp</a>
+          <button class="btn btn-sm btn-outline" data-remove="${s.id}">Remove</button>
+        </td>
+      </tr>`;
+  }).join('');
+
+  return `
+    <div class="page-head">
+      <h2>Subscriptions</h2>
+      <p>Track renewals, record payments, and send WhatsApp reminders before and after expiry.</p>
+    </div>
+    <div class="notice">WhatsApp reminders open a pre-filled chat you send manually. To automate sending later, you'd connect a WhatsApp Business API or SMS gateway.</div>
+    <div class="card">
+      <div class="filter-row">
+        <div class="filter-btn ${subFilter==='all'?'active':''}" data-filter="all">All (${students.length})</div>
+        <div class="filter-btn ${subFilter==='active'?'active':''}" data-filter="active">Active</div>
+        <div class="filter-btn ${subFilter==='expiring'?'active':''}" data-filter="expiring">Expiring soon</div>
+        <div class="filter-btn ${subFilter==='expired'?'active':''}" data-filter="expired">Expired</div>
+        <div class="search-box"><input type="text" id="sub-search" placeholder="Search name, phone, seat" value="${subSearch}"></div>
+      </div>
+      <table>
+        <thead><tr><th>Student</th><th>Seat</th><th>Locker</th><th>Exam</th><th>Expiry</th><th>Status</th><th>Paid</th><th>Actions</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="8" class="empty">No students match this view.</td></tr>'}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ============================================================
+// Modals
+// ============================================================
+function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
+
+function showPublicResourceModal(kind, floorId, num){
+  const label = kind === 'seat' ? seatLabel(floorId, num) : lockerLabel(floorId, num);
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>${kind === 'seat' ? 'Seat' : 'Locker'} ${label}</h3>
+        <p style="color:var(--muted);font-size:13px;margin:8px 0 16px;">This ${kind} is currently free.</p>
+        <div class="modal-actions">
+          ${kind === 'seat' ? `<button class="btn" id="go-register">Register a student here</button>` : ''}
+          <button class="btn btn-outline" id="close-modal">Close</button>
+        </div>
+      </div>
+    </div>`;
+  const goBtn = document.getElementById('go-register');
+  if (goBtn) goBtn.onclick = ()=>{
+    currentPage = 'register'; regFloor = floorId; closeModal(); render();
+    setTimeout(()=>{ const sel=document.getElementById('f-seat'); if (sel) sel.value = label; }, 0);
+  };
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+}
+
+function showStaffSeatModal(kind, floorId, num){
+  if (kind === 'locker') return showStaffLockerModal(floorId, num);
+  const occ = occupantOf(floorId, num);
+  const modalRoot = document.getElementById('modal-root');
+  if (!occ){
+    modalRoot.innerHTML = `
+      <div class="modal-overlay" id="ov">
+        <div class="modal">
+          <h3>Seat ${seatLabel(floorId,num)}</h3>
+          <p style="color:var(--muted);font-size:13px;margin:8px 0 16px;">This seat is currently free.</p>
+          <div class="modal-actions">
+            <button class="btn" id="go-register">Register a student here</button>
+            <button class="btn btn-outline" id="close-modal">Close</button>
+          </div>
+        </div>
+      </div>`;
+    document.getElementById('go-register').onclick = async ()=>{
+      currentPage='register'; regFloor=floorId; closeModal();
+      await loadPublicAvailability();
+      render();
+      setTimeout(()=>{ const sel=document.getElementById('f-seat'); if(sel) sel.value = seatLabel(floorId,num); },0);
+    };
+  } else {
+    const st = statusOf(occ);
+    modalRoot.innerHTML = `
+      <div class="modal-overlay" id="ov">
+        <div class="modal">
+          <h3>${occ.name}</h3>
+          <span class="badge ${st}" style="margin-top:4px;display:inline-block;">${st}</span>
+          <div style="margin-top:14px;">
+            <div class="row"><span>Seat</span><span>${occ.seatId}</span></div>
+            <div class="row"><span>Locker</span><span>${occ.lockerId || '—'}</span></div>
+            <div class="row"><span>Phone</span><span>${occ.phone}</span></div>
+            <div class="row"><span>Email</span><span>${occ.email||'—'}</span></div>
+            <div class="row"><span>Exam</span><span>${occ.examPrep}</span></div>
+            <div class="row"><span>Joined</span><span>${occ.joinDate}</span></div>
+            <div class="row"><span>Expires</span><span>${occ.expiryDate}</span></div>
+            <div class="row"><span>Total paid</span><span>₹${totalPaid(occ)}</span></div>
+          </div>
+          <div id="id-photo-wrap" style="margin-top:10px;"></div>
+          <div class="modal-actions">
+            <button class="btn" id="record-payment" data-id="${occ.id}">Record payment</button>
+            <a class="btn btn-wa" href="${waLink(occ, st)}" target="_blank" rel="noopener">WhatsApp</a>
+            ${!occ.lockerId ? `<button class="btn btn-outline" id="assign-locker" data-id="${occ.id}">Assign locker</button>` : ''}
+            <button class="btn btn-outline" id="remove-student" data-id="${occ.id}">Remove</button>
+            <button class="btn btn-outline" id="close-modal">Close</button>
+          </div>
+        </div>
+      </div>`;
+    document.getElementById('remove-student').onclick = async (e)=>{
+      const id = e.target.dataset.id;
+      await apiPost('/api/student-delete', { studentId: id }).catch(()=>{});
+      await loadFullStudents(); await loadPublicAvailability();
+      closeModal(); render(); showToast('Student removed');
+    };
+    document.getElementById('record-payment').onclick = ()=> showPaymentModal(occ.id);
+    const assignBtn = document.getElementById('assign-locker');
+    if (assignBtn) assignBtn.onclick = ()=> showAssignLockerModal(occ.id);
+    if (occ.hasIdPhoto){
+      document.getElementById('id-photo-wrap').innerHTML = `<img src="/api/student-photo?id=${occ.id}" style="max-width:100%;max-height:180px;border-radius:8px;border:1px solid var(--line);cursor:pointer;" onclick="window.open('/api/student-photo?id=${occ.id}','_blank')" title="Click to view full size">`;
+    }
+  }
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if(e.target.id==='ov') closeModal(); };
+}
+
+function showStaffLockerModal(floorId, num){
+  const label = lockerLabel(floorId, num);
+  const occ = lockerOccupantOf(floorId, num);
+  const modalRoot = document.getElementById('modal-root');
+  if (!occ){
+    const eligible = students.filter(s => statusOf(s) !== 'expired' && (!s.lockerId || lockerStatusOf(s) === 'expired'));
+    const options = eligible.map(s => `<option value="${s.id}">${s.name} — seat ${s.seatId}</option>`).join('');
+    modalRoot.innerHTML = `
+      <div class="modal-overlay" id="ov">
+        <div class="modal">
+          <h3>Locker ${label}</h3>
+          <p style="color:var(--muted);font-size:13px;margin:8px 0 16px;">This locker is currently free.</p>
+          ${eligible.length ? `
+            <label>Assign to student</label>
+            <select id="al-student">${options}</select>
+            <label>Subscription (months)</label>
+            <select id="al-months">${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}">${m} month${m>1?'s':''}</option>`).join('')}</select>
+            <label>Amount paid</label>
+            <select id="al-amount">${paymentAmountOptionsHTML()}</select>
+            <div id="al-amount-other-wrap" style="display:none;">
+              <label>Enter amount (₹)</label>
+              <input type="number" id="al-amount-other" min="0">
+            </div>
+          ` : `<p style="color:var(--muted);font-size:13px;">No registered students are currently without a locker.</p>`}
+          <div class="modal-actions">
+            ${eligible.length ? '<button class="btn" id="al-submit">Assign locker</button>' : ''}
+            <button class="btn btn-outline" id="close-modal">Close</button>
+          </div>
+        </div>
+      </div>`;
+    if (eligible.length){
+      const amountSel = document.getElementById('al-amount');
+      const otherWrap = document.getElementById('al-amount-other-wrap');
+      amountSel.onchange = ()=>{ otherWrap.style.display = amountSel.value==='other'?'block':'none'; };
+      document.getElementById('al-submit').onclick = async ()=>{
+        const sid = document.getElementById('al-student').value;
+        const months = document.getElementById('al-months').value;
+        const amountRaw = amountSel.value==='other' ? document.getElementById('al-amount-other').value : amountSel.value;
+        const amount = Number(amountRaw||0);
+        if (amount<=0){ showToast('Enter a valid amount'); return; }
+        try{
+          await apiPost('/api/student-locker', { studentId: sid, lockerId: label, floorId, months, amount });
+          await loadFullStudents(); await loadPublicAvailability();
+          closeModal(); render(); showToast('Locker ' + label + ' assigned');
+        }catch(err){ showToast(err.message); }
+      };
+    }
+  } else {
+    const lst = lockerStatusOf(occ);
+    modalRoot.innerHTML = `
+      <div class="modal-overlay" id="ov">
+        <div class="modal">
+          <h3>${occ.name}</h3>
+          <span class="badge ${lst}" style="margin-top:4px;display:inline-block;">${lst}</span>
+          <div style="margin-top:14px;">
+            <div class="row"><span>Locker</span><span>${occ.lockerId}</span></div>
+            <div class="row"><span>Seat</span><span>${occ.seatId}</span></div>
+            <div class="row"><span>Phone</span><span>${occ.phone}</span></div>
+            <div class="row"><span>Locker joined</span><span>${occ.lockerJoinDate}</span></div>
+            <div class="row"><span>Locker expires</span><span>${occ.lockerExpiryDate}</span></div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" id="record-payment" data-id="${occ.id}">Record payment</button>
+            <a class="btn btn-wa" href="${lockerWaLink(occ, lst)}" target="_blank" rel="noopener">WhatsApp</a>
+            <button class="btn btn-outline" id="unassign-locker" data-id="${occ.id}">Remove locker</button>
+            <button class="btn btn-outline" id="close-modal">Close</button>
+          </div>
+        </div>
+      </div>`;
+    document.getElementById('record-payment').onclick = ()=> showPaymentModal(occ.id);
+    document.getElementById('unassign-locker').onclick = async ()=>{
+      await apiPost('/api/student-locker', { studentId: occ.id, action: 'remove' }).catch(()=>{});
+      await loadFullStudents(); await loadPublicAvailability();
+      closeModal(); render(); showToast('Locker removed from ' + occ.name);
+    };
+  }
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if(e.target.id==='ov') closeModal(); };
+}
+
+function showPaymentModal(studentId){
+  const s = students.find(x=>x.id===studentId);
+  if (!s) return;
+  const hasLocker = !!s.lockerId;
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Record payment</h3>
+        <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">${s.name} — seat ${s.seatId}${hasLocker ? ' · locker ' + s.lockerId : ''}</p>
+        <label>Extend seat by</label>
+        <select id="pm-seat-months">
+          <option value="0">No change</option>
+          ${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}">${m} month${m>1?'s':''}</option>`).join('')}
+        </select>
+        ${hasLocker ? `
+        <label>Extend locker by</label>
+        <select id="pm-locker-months">
+          <option value="0">No change</option>
+          ${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}">${m} month${m>1?'s':''}</option>`).join('')}
+        </select>` : ''}
+        <label>Amount paid</label>
+        <select id="pm-amount">${paymentAmountOptionsHTML()}</select>
+        <div id="pm-amount-other-wrap" style="display:none;">
+          <label>Enter amount (₹)</label>
+          <input type="number" id="pm-amount-other" min="0" placeholder="e.g. 1500">
+        </div>
+        <div class="modal-actions">
+          <button class="btn" id="pm-submit">Save payment</button>
+          <button class="btn btn-outline" id="close-modal">Close</button>
+        </div>
+      </div>
+    </div>`;
+  const amountSel = document.getElementById('pm-amount');
+  const otherWrap = document.getElementById('pm-amount-other-wrap');
+  amountSel.onchange = ()=>{ otherWrap.style.display = amountSel.value==='other'?'block':'none'; };
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+  document.getElementById('pm-submit').onclick = async ()=>{
+    const seatMonths = Number(document.getElementById('pm-seat-months').value);
+    const lockerMonthsEl = document.getElementById('pm-locker-months');
+    const lockerMonths = hasLocker && lockerMonthsEl ? Number(lockerMonthsEl.value) : 0;
+    const amountRaw = amountSel.value === 'other' ? document.getElementById('pm-amount-other').value : amountSel.value;
+    const amount = Number(amountRaw || 0);
+    if (amount <= 0){ showToast('Enter a valid amount'); return; }
+    await apiPost('/api/student-payment', { studentId: s.id, seatMonths, lockerMonths, amount }).catch(()=>{});
+    await loadFullStudents();
+    closeModal(); render(); showToast('Payment recorded for ' + s.name);
+  };
+}
+
+function showAssignLockerModal(studentId){
+  const s = students.find(x=>x.id===studentId);
+  if (!s) return;
+  let lockerOptions = '';
+  LOCKERS.forEach(f=>{
+    for(let i=1;i<=f.count;i++){
+      if(!lockerOccupantOf(f.id,i)) lockerOptions += `<option value="${lockerLabel(f.id,i)}" data-floor="${f.id}">${f.label} — Locker ${i}</option>`;
+    }
+  });
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Assign locker</h3>
+        <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">${s.name} — ₹${LOCKER_MONTHLY}/month + ₹${LOCKER_DEPOSIT} refundable deposit</p>
+        <label>Locker</label>
+        <select id="al2-locker">${lockerOptions || '<option value="">No free lockers</option>'}</select>
+        <label>Subscription (months)</label>
+        <select id="al2-months">${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}">${m} month${m>1?'s':''}</option>`).join('')}</select>
+        <label>Amount paid</label>
+        <select id="al2-amount">${paymentAmountOptionsHTML()}</select>
+        <div id="al2-amount-other-wrap" style="display:none;">
+          <label>Enter amount (₹)</label>
+          <input type="number" id="al2-amount-other" min="0">
+        </div>
+        <div class="modal-actions">
+          <button class="btn" id="al2-submit">Assign locker</button>
+          <button class="btn btn-outline" id="close-modal">Close</button>
+        </div>
+      </div>
+    </div>`;
+  const amountSel = document.getElementById('al2-amount');
+  const otherWrap = document.getElementById('al2-amount-other-wrap');
+  amountSel.onchange = ()=>{ otherWrap.style.display = amountSel.value==='other'?'block':'none'; };
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if(e.target.id==='ov') closeModal(); };
+  document.getElementById('al2-submit').onclick = async ()=>{
+    const lockerSel = document.getElementById('al2-locker');
+    const lockerId = lockerSel.value;
+    if (!lockerId){ showToast('No free locker selected'); return; }
+    const floorId = lockerSel.selectedOptions[0].dataset.floor;
+    const months = document.getElementById('al2-months').value;
+    const amountRaw = amountSel.value==='other' ? document.getElementById('al2-amount-other').value : amountSel.value;
+    const amount = Number(amountRaw||0);
+    if (amount<=0){ showToast('Enter a valid amount'); return; }
+    try{
+      await apiPost('/api/student-locker', { studentId: s.id, lockerId, floorId, months, amount });
+      await loadFullStudents(); await loadPublicAvailability();
+      closeModal(); render(); showToast('Locker ' + lockerId + ' assigned to ' + s.name);
+    }catch(err){ showToast(err.message); }
+  };
+}
+
+// ============================================================
+// Event wiring
+// ============================================================
+function wireLoginForm(){
+  const emailInput = document.getElementById('login-email');
+  const passInput = document.getElementById('login-password');
+  const errorMsg = document.getElementById('login-error');
+  const doLogin = async ()=>{
+    const email = emailInput.value.trim();
+    const password = passInput.value;
+    if (!email || !password){ errorMsg.textContent = 'Enter both email and password.'; errorMsg.style.display='block'; return; }
+    try{
+      await apiPost('/api/login', { email, password });
+    }catch(err){
+      errorMsg.textContent = err.message || 'Incorrect email or password.';
+      errorMsg.style.display = 'block';
+      return;
+    }
+    await resolveSession();
+    render();
+  };
+  document.getElementById('login-submit').onclick = doLogin;
+  passInput.onkeydown = (e)=>{ if (e.key === 'Enter') doLogin(); };
+  emailInput.focus();
+}
+
+function attachHandlers(){
+  document.querySelectorAll('.nav-item').forEach(el=>{
+    el.onclick = async ()=>{
+      currentPage = el.dataset.page;
+      if (currentPage === 'availability' || currentPage === 'register') await loadPublicAvailability();
+      if (GATED_PAGES.includes(currentPage) && session) await loadFullStudents();
+      render();
+    };
+  });
+
+  if (GATED_PAGES.includes(currentPage) && !session){
+    wireLoginForm();
+    return;
+  }
+
+  if (currentPage === 'dashboard'){
+    document.querySelectorAll('.floor-tab[data-view]').forEach(el=>{
+      el.onclick = ()=>{ dashView = el.dataset.view; render(); };
+    });
+    document.querySelectorAll('.floor-tab[data-floor]').forEach(el=>{
+      el.onclick = ()=>{
+        if (dashView === 'lockers') currentLockerFloor = el.dataset.floor;
+        else currentFloor = el.dataset.floor;
+        render();
+      };
+    });
+    document.querySelectorAll('.seat').forEach(el=>{
+      el.onclick = ()=> showStaffSeatModal(el.dataset.kind, el.dataset.floor, Number(el.dataset.num));
+    });
+  }
+
+  if (currentPage === 'availability'){
+    document.querySelectorAll('.seat').forEach(el=>{
+      el.onclick = ()=> showPublicResourceModal(el.dataset.kind, el.dataset.floor, Number(el.dataset.num));
+    });
+    document.querySelectorAll('.floor-tab[data-availview]').forEach(el=>{
+      el.onclick = ()=>{ availView = el.dataset.availview; availFloorFilter = 'all'; render(); };
+    });
+    document.querySelectorAll('#avail-floor-filter .floor-tab').forEach(el=>{
+      el.onclick = ()=>{ availFloorFilter = el.dataset.availfloor; render(); };
+    });
+  }
+
+  if (currentPage === 'register'){
+    const form = document.getElementById('reg-form');
+    const amountSel = document.getElementById('f-amount');
+    const otherWrap = document.getElementById('f-amount-other-wrap');
+    otherWrap.style.display = amountSel.value === 'other' ? 'block' : 'none';
+    amountSel.onchange = ()=>{ otherWrap.style.display = amountSel.value === 'other' ? 'block' : 'none'; };
+
+    document.querySelectorAll('#reg-floor-tabs .floor-tab').forEach(el=>{
+      el.onclick = ()=>{ regFloor = el.dataset.regfloor; render(); };
+    });
+
+    const lockerSel = document.getElementById('f-locker');
+    const lockerMonthsWrap = document.getElementById('f-locker-months-wrap');
+    lockerMonthsWrap.style.display = lockerSel.value ? 'block' : 'none';
+    lockerSel.onchange = ()=>{ lockerMonthsWrap.style.display = lockerSel.value ? 'block' : 'none'; };
+
+    const fileInput = document.getElementById('f-id-file');
+    const preview = document.getElementById('f-id-preview');
+    fileInput.onchange = async ()=>{
+      const file = fileInput.files[0];
+      if (!file){ preview.style.display = 'none'; preview.innerHTML=''; return; }
+      const raw = await readFileAsDataURL(file);
+      const resized = await resizeImageDataURL(raw, 900, 0.72);
+      fileInput.dataset.resized = resized;
+      preview.style.display = 'block';
+      preview.innerHTML = `<img src="${resized}" style="max-width:140px;max-height:100px;border-radius:6px;border:1px solid var(--line);">`;
+    };
+
+    form.onsubmit = async (e)=>{
+      e.preventDefault();
+      const seatId = document.getElementById('f-seat').value;
+      if (!seatId){ showToast('No seat selected'); return; }
+      const submitBtn = document.getElementById('reg-submit-btn');
+      submitBtn.disabled = true; submitBtn.textContent = 'Registering…';
+
+      const joinDate = document.getElementById('f-join').value;
+      const months = document.getElementById('f-months').value;
+      const lockerId = document.getElementById('f-locker').value;
+      const lockerMonths = document.getElementById('f-locker-months').value;
+      const amountRaw = amountSel.value === 'other' ? document.getElementById('f-amount-other').value : amountSel.value;
+      const amount = Number(amountRaw || 0);
+
+      const payload = {
+        name: document.getElementById('f-name').value.trim(),
+        phone: document.getElementById('f-phone').value.trim(),
+        email: document.getElementById('f-email').value.trim() || null,
+        examPrep: document.getElementById('f-exam').value.trim(),
+        joinDate,
+        durationMonths: Number(months),
+        seatId,
+        amount
+      };
+      if (lockerId){
+        payload.lockerId = lockerId;
+        payload.lockerMonths = Number(lockerMonths);
+      }
+      const resizedPhoto = fileInput.dataset.resized;
+      if (resizedPhoto) payload.photoBase64 = resizedPhoto;
+
+      try{
+        await apiPost('/api/register', payload);
+        await loadPublicAvailability();
+        if (session) await loadFullStudents();
+        showToast('Registered ' + payload.name + ' — seat ' + seatId + (lockerId ? ', locker ' + lockerId : ''));
+        currentPage = session ? 'dashboard' : 'availability';
+        currentFloor = seatId.slice(0,2);
+        render();
+      }catch(err){
+        showToast(err.message || 'Registration failed. Please try again.');
+        submitBtn.disabled = false; submitBtn.textContent = 'Register student';
+        await loadPublicAvailability();
+        render();
+      }
+    };
+  }
+
+  if (currentPage === 'subscriptions'){
+    document.querySelectorAll('.filter-btn').forEach(el=>{
+      el.onclick = ()=>{ subFilter = el.dataset.filter; render(); };
+    });
+    const search = document.getElementById('sub-search');
+    search.oninput = ()=>{ subSearch = search.value; render(); };
+    search.focus();
+    search.setSelectionRange(search.value.length, search.value.length);
+    document.querySelectorAll('[data-remove]').forEach(el=>{
+      el.onclick = async ()=>{
+        await apiPost('/api/student-delete', { studentId: el.dataset.remove }).catch(()=>{});
+        await loadFullStudents(); await loadPublicAvailability();
+        render();
+        showToast('Student removed');
+      };
+    });
+    document.querySelectorAll('[data-payment]').forEach(el=>{
+      el.onclick = ()=> showPaymentModal(el.dataset.payment);
+    });
+  }
+}
+
+// ============================================================
+// Init
+// ============================================================
+async function init(){
+  await loadPublicAvailability();
+  await resolveSession();
+  render();
+}
+init();
+</script>
+</body>
+</html>
