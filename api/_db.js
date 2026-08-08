@@ -11,3 +11,12 @@ export function addMonths(dateStr, months){
 export function todayISO(){
   return new Date().toISOString().slice(0,10);
 }
+
+// Neon can return `date` columns as JS Date objects or as strings
+// depending on context — normalize to a plain 'YYYY-MM-DD' string
+// so date math and comparisons behave consistently either way.
+export function toDateStr(v){
+  if (!v) return null;
+  if (v instanceof Date) return v.toISOString().slice(0,10);
+  return String(v).slice(0,10);
+}
