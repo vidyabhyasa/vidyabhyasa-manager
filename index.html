@@ -25,6 +25,9 @@
     --warn:#E0790A;
     --warn-bg:#FCDBA6;
     --warn-text:#7A4405;
+    --pend:#3B5BDB;
+    --pend-bg:#DCE3FA;
+    --pend-text:#1E3A8A;
     --muted:#7C7566;
     --radius:10px;
   }
@@ -100,6 +103,17 @@
   .seat.free{background:var(--free-bg);color:var(--free-text);border-color:var(--free);border-width:1.5px;}
   .seat.occ{background:var(--occ-bg);color:var(--occ-text);border-color:var(--occ);border-width:1.5px;}
   .seat.warn{background:var(--warn-bg);color:var(--warn-text);border-color:var(--warn);border-width:1.5px;}
+  .seat.pend{background:var(--pend-bg);color:var(--pend-text);border-color:var(--pend);border-width:1.5px;}
+  .spinner{
+    width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--ink);
+    border-radius:50%;animation:spin 0.8s linear infinite;
+  }
+  .spinner.sm{width:18px;height:18px;border-width:2px;}
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .thumb-box{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:100px;height:100px;background:var(--paper-2);border-radius:8px;border:1px solid var(--line);
+  }
   table{width:100%;border-collapse:collapse;font-size:13px;}
   th{text-align:left;padding:10px 12px;color:var(--muted);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:0.3px;border-bottom:1px solid var(--line);}
   td{padding:12px;border-bottom:1px solid var(--line);vertical-align:middle;}
@@ -107,6 +121,7 @@
   .badge.active{background:var(--free-bg);color:var(--free-text);}
   .badge.expiring{background:var(--warn-bg);color:var(--warn-text);}
   .badge.expired{background:var(--occ-bg);color:var(--occ-text);}
+  .badge.pending{background:var(--pend-bg);color:var(--pend-text);}
   .field-error{color:var(--occ-text);font-size:12px;margin:-12px 0 14px;display:none;}
   .field-error.show{display:block;}
   input.invalid,select.invalid{border-color:var(--occ);background:var(--occ-bg);}
@@ -558,6 +573,11 @@ function renderLogin(){
 // ============================================================
 // Dashboard (staff only — full personal detail)
 // ============================================================
+function pendingHolds(kind, floorId, num){
+  const label = kind === 'seat' ? seatLabel(floorId, num) : lockerLabel(floorId, num);
+  return pendingList.find(p => (kind === 'seat' ? p.seatId : p.lockerId) === label);
+}
+
 function renderDashboard(){
   const totalSeats = FLOORS.reduce((a,f)=>a+f.count,0);
   let seatsOccupied = 0, seatsExpiring = 0;
@@ -590,25 +610,36 @@ function renderDashboard(){
   let visibleCount = 0;
   for(let i=1;i<=floor.count;i++){
     const occ = isLockers ? lockerOccupantOf(floor.id, i) : occupantOf(floor.id, i);
+    const pending = !occ ? pendingHolds(isLockers ? 'locker' : 'seat', floor.id, i) : null;
     const st = occ ? (isLockers ? lockerStatusOf(occ) : statusOf(occ)) : null;
-    const cls = !occ ? 'free' : (st === 'expiring' ? 'warn' : 'occ');
-    const cellStatus = !occ ? 'free' : (st === 'expiring' ? 'expiring' : 'occupied');
+    let cls, cellStatus, cellTitle;
+    if (pending){
+      cls = 'pend'; cellStatus = 'pending'; cellTitle = pending.name + ' (pending approval)';
+    } else if (!occ){
+      cls = 'free'; cellStatus = 'free'; cellTitle = 'Free';
+    } else {
+      cls = st === 'expiring' ? 'warn' : 'occ';
+      cellStatus = st === 'expiring' ? 'expiring' : 'occupied';
+      cellTitle = occ.name;
+    }
 
     let matchesFilter = dashStatusFilter === 'all' || dashStatusFilter === cellStatus;
     let matchesSearch = true;
     if (q){
       const seatNumStr = String(i);
-      matchesSearch = seatNumStr === q || (occ && (occ.name.toLowerCase().includes(q) || occ.phone.includes(q)));
+      const person = occ || pending;
+      matchesSearch = seatNumStr === q || (person && (person.name.toLowerCase().includes(q) || person.phone.includes(q)));
     }
     if (!matchesFilter || !matchesSearch) continue;
     visibleCount++;
 
     const kindAttr = isLockers ? 'locker' : 'seat';
-    cells += '<div class="seat '+cls+'" data-kind="'+kindAttr+'" data-floor="'+floor.id+'" data-num="'+i+'" title="'+ (occ ? occ.name : 'Free') +'">'+i+'</div>';
+    const pendAttr = pending ? ' data-pending="1"' : '';
+    cells += '<div class="seat '+cls+'" data-kind="'+kindAttr+'" data-floor="'+floor.id+'" data-num="'+i+'"'+pendAttr+' title="'+cellTitle+'">'+i+'</div>';
   }
   if (!cells) cells = '<p class="empty" style="grid-column:1/-1;">No seats match this filter on this floor.</p>';
 
-  const filterLabel = { all:'', free:'Showing free only', occupied:'Showing occupied only', expiring:'Showing expiring only' }[dashStatusFilter];
+  const filterLabel = { all:'', free:'Showing free only', occupied:'Showing occupied only', expiring:'Showing expiring only', pending:'Showing pending approval only' }[dashStatusFilter];
 
   return `
     <div class="page-head">
@@ -641,12 +672,14 @@ function renderDashboard(){
         <span><span class="dot" style="background:var(--free)"></span>Free</span>
         <span><span class="dot" style="background:var(--occ)"></span>Occupied</span>
         <span><span class="dot" style="background:var(--warn)"></span>Expiring within 2 days</span>
+        <span><span class="dot" style="background:var(--pend)"></span>Pending approval</span>
       </div>
       <div class="filter-row">
         <div class="filter-btn ${dashStatusFilter==='all'?'active':''}" data-dashfilter="all">All</div>
         <div class="filter-btn ${dashStatusFilter==='free'?'active':''}" data-dashfilter="free">Free</div>
         <div class="filter-btn ${dashStatusFilter==='occupied'?'active':''}" data-dashfilter="occupied">Occupied</div>
         <div class="filter-btn ${dashStatusFilter==='expiring'?'active':''}" data-dashfilter="expiring">Expiring</div>
+        <div class="filter-btn ${dashStatusFilter==='pending'?'active':''}" data-dashfilter="pending">Pending</div>
         <div class="search-box"><input type="text" id="dash-search" placeholder="Search name, phone, or seat #" value="${dashSearch}"></div>
       </div>
       ${filterLabel ? `<p style="font-size:12px;color:var(--muted);margin:-8px 0 14px;">${filterLabel} (${visibleCount} shown) — <a href="#" id="dash-clear-filter" style="color:var(--ink-light);">clear filter</a></p>` : ''}
@@ -1204,6 +1237,54 @@ function showRejectModal(pendingId){
 // ============================================================
 function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
 
+// ============================================================
+// Image viewing — enlarge in-page (no new tab/window) with a
+// loading spinner until the image actually arrives.
+// ============================================================
+function showImageLightbox(src, title){
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="lightbox-ov" style="z-index:200;">
+      <div style="max-width:92vw;max-height:92vh;position:relative;">
+        <button class="btn btn-outline" id="lightbox-close" style="position:absolute;top:-46px;right:0;background:#fff;">Close</button>
+        <div id="lightbox-loader" style="width:280px;height:280px;max-width:80vw;max-height:70vh;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;">
+          <div class="spinner"></div>
+        </div>
+        <img id="lightbox-img" alt="${title||''}" style="display:none;max-width:92vw;max-height:88vh;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,0.35);">
+      </div>
+    </div>`;
+  const ov = document.getElementById('lightbox-ov');
+  ov.onclick = (e)=>{ if (e.target.id==='lightbox-ov') closeModal(); };
+  document.getElementById('lightbox-close').onclick = closeModal;
+
+  const img = document.getElementById('lightbox-img');
+  const loader = document.getElementById('lightbox-loader');
+  img.onload = ()=>{ loader.style.display = 'none'; img.style.display = 'block'; };
+  img.onerror = ()=>{ loader.innerHTML = '<p style="color:var(--occ-text);font-size:13px;padding:0 16px;text-align:center;">Could not load this image.</p>'; };
+  img.src = src;
+}
+
+// Renders a loading spinner into `wrap`, then swaps in the actual
+// thumbnail once it loads. Clicking the thumbnail opens the full
+// size version via showImageLightbox (same window, not a new tab).
+function renderLoadableThumb(wrap, src, title){
+  const uid = 'thumb-' + Math.random().toString(36).slice(2);
+  const holder = document.createElement('div');
+  holder.style.display = 'inline-block';
+  holder.innerHTML = `
+    <div class="thumb-box" id="${uid}-loader"><div class="spinner sm"></div></div>
+    <img id="${uid}-img" alt="${title||''}" title="${title||''} — click to enlarge"
+         style="display:none;max-width:160px;max-height:160px;border-radius:8px;border:1px solid var(--line);cursor:pointer;">
+  `;
+  wrap.appendChild(holder);
+  const img = holder.querySelector('#' + uid + '-img');
+  const loader = holder.querySelector('#' + uid + '-loader');
+  img.onload = ()=>{ loader.style.display = 'none'; img.style.display = 'block'; };
+  img.onerror = ()=>{ loader.innerHTML = '<span style="font-size:10px;color:var(--occ-text);text-align:center;padding:4px;">Failed to load</span>'; };
+  img.onclick = ()=> showImageLightbox(src, title);
+  img.src = src;
+}
+
 function showPublicResourceModal(kind, floorId, num){
   const label = kind === 'seat' ? seatLabel(floorId, num) : lockerLabel(floorId, num);
   const modalRoot = document.getElementById('modal-root');
@@ -1227,6 +1308,32 @@ function showPublicResourceModal(kind, floorId, num){
     try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
     closeModal(); render();
   };
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+}
+
+function showPendingHoldModal(kind, floorId, num){
+  const p = pendingHolds(kind, floorId, num);
+  const label = kind === 'seat' ? seatLabel(floorId, num) : lockerLabel(floorId, num);
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>${kind === 'seat' ? 'Seat' : 'Locker'} ${label}</h3>
+        <span class="badge pending" style="margin-top:4px;display:inline-block;">pending approval</span>
+        ${p ? `
+          <div style="margin-top:14px;">
+            <div class="row"><span>Requested by</span><span>${p.name}</span></div>
+            <div class="row"><span>Phone</span><span>${p.phone}</span></div>
+          </div>` : ''}
+        <p style="color:var(--muted);font-size:13px;margin:12px 0 16px;">This ${kind} is held by a registration request awaiting review — it isn't free, but it isn't a confirmed occupant yet either.</p>
+        <div class="modal-actions">
+          <button class="btn" id="go-pending">Review in Pending approvals</button>
+          <button class="btn btn-outline" id="close-modal">Close</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('go-pending').onclick = ()=>{ closeModal(); currentPage = 'pending'; render(); };
   document.getElementById('close-modal').onclick = closeModal;
   document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
 }
@@ -1294,7 +1401,7 @@ function showStaffSeatModal(kind, floorId, num){
     const assignBtn = document.getElementById('assign-locker');
     if (assignBtn) assignBtn.onclick = ()=> showAssignLockerModal(occ.id);
     if (occ.hasIdPhoto){
-      document.getElementById('id-photo-wrap').innerHTML = `<img src="/api/students?photo=1&id=${occ.id}" style="max-width:100%;max-height:180px;border-radius:8px;border:1px solid var(--line);cursor:pointer;" onclick="window.open('/api/students?photo=1&id=${occ.id}','_blank')" title="Click to view full size">`;
+      renderLoadableThumb(document.getElementById('id-photo-wrap'), '/api/students?photo=1&id=' + occ.id, 'ID proof');
     }
   }
   document.getElementById('close-modal').onclick = closeModal;
@@ -1504,6 +1611,7 @@ function wireLoginForm(){
       return;
     }
     await resolveSession();
+    if (session) await loadPendingList();
     render();
   };
   document.getElementById('login-submit').onclick = doLogin;
@@ -1523,6 +1631,9 @@ function attachHandlers(){
       }
       if (currentPage === 'pending' && session){
         render();
+        await loadPendingList();
+      }
+      if (currentPage === 'dashboard' && session){
         await loadPendingList();
       }
       render();
@@ -1564,7 +1675,10 @@ function attachHandlers(){
       dashSearchInput.setSelectionRange(dashSearchInput.value.length, dashSearchInput.value.length);
     }
     document.querySelectorAll('.seat').forEach(el=>{
-      el.onclick = ()=> showStaffSeatModal(el.dataset.kind, el.dataset.floor, Number(el.dataset.num));
+      el.onclick = ()=>{
+        if (el.dataset.pending) return showPendingHoldModal(el.dataset.kind, el.dataset.floor, Number(el.dataset.num));
+        showStaffSeatModal(el.dataset.kind, el.dataset.floor, Number(el.dataset.num));
+      };
     });
   }
 
@@ -1823,7 +1937,7 @@ function attachHandlers(){
       el.onclick = ()=>{
         const id = el.dataset.fetchphoto;
         const wrap = document.getElementById('photo-preview-' + id);
-        wrap.innerHTML += `<img src="/api/pending?photo=1&id=${id}&type=id" style="max-width:160px;max-height:160px;border-radius:8px;border:1px solid var(--line);cursor:pointer;" onclick="window.open('/api/pending?photo=1&id=${id}&type=id','_blank')" title="ID proof — click to view full size">`;
+        renderLoadableThumb(wrap, '/api/pending?photo=1&id=' + id + '&type=id', 'ID proof');
         el.remove();
       };
     });
@@ -1831,7 +1945,7 @@ function attachHandlers(){
       el.onclick = ()=>{
         const id = el.dataset.fetchpayment;
         const wrap = document.getElementById('photo-preview-' + id);
-        wrap.innerHTML += `<img src="/api/pending?photo=1&id=${id}&type=payment" style="max-width:160px;max-height:160px;border-radius:8px;border:1px solid var(--line);cursor:pointer;" onclick="window.open('/api/pending?photo=1&id=${id}&type=payment','_blank')" title="Payment screenshot — click to view full size">`;
+        renderLoadableThumb(wrap, '/api/pending?photo=1&id=' + id + '&type=payment', 'Payment screenshot');
         el.remove();
       };
     });
