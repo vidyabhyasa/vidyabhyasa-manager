@@ -28,10 +28,9 @@ export default async function handler(req, res){
              exam_prep as "examPrep"
       from students
       where join_date >= ${from} and join_date <= ${to}`;
-    const allActive = await sql`
+    const allStudents = await sql`
       select floor, locker_id as "lockerId", expiry_date as "expiryDate", locker_expiry_date as "lockerExpiryDate"
-      from students
-      where expiry_date >= current_date`;
+      from students`;
 
     let totalRevenue = 0, registrationRevenue = 0, renewalRevenue = 0, lockerRevenue = 0;
     payments.forEach(p=>{
@@ -63,12 +62,19 @@ export default async function handler(req, res){
       .map(([exam,count])=>({ exam, count }));
 
     const today = new Date().toISOString().slice(0,10);
-    const totalActiveStudents = allActive.length;
-    const activeWithLocker = allActive.filter(s=>s.lockerId).length;
-    const expiringSoon = allActive.filter(s=>{
+    const totalActiveStudents = allStudents.length;
+    const activeWithLocker = allStudents.filter(s=>s.lockerId).length;
+
+    let warningCount = 0, errorCount = 0, criticalCount = 0;
+    allStudents.forEach(s=>{
       const d = daysUntil(s.expiryDate, today);
-      return d >= 0 && d <= 2;
-    }).length;
+      if (d <= -3) criticalCount++;
+      else if (d <= 0) errorCount++;
+      else if (d <= 2) warningCount++;
+    });
+
+    const cleanupPending = await sql`select count(*)::int as c from cleanup_flags where cleared_at is null`;
+    const needsCleaning = cleanupPending[0] ? cleanupPending[0].c : 0;
 
     res.status(200).json({
       range: { from, to },
@@ -92,7 +98,10 @@ export default async function handler(req, res){
         seatOccupancyPct: Math.round((totalActiveStudents / TOTAL_SEATS) * 100),
         activeWithLocker,
         lockerOccupancyPct: Math.round((activeWithLocker / TOTAL_LOCKERS) * 100),
-        expiringSoon
+        warningCount,
+        errorCount,
+        criticalCount,
+        needsCleaning
       }
     });
   }catch(err){

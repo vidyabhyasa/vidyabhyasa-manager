@@ -28,6 +28,12 @@
     --pend:#3B5BDB;
     --pend-bg:#DCE3FA;
     --pend-text:#1E3A8A;
+    --error:#C2255C;
+    --error-bg:#F5C2D6;
+    --error-text:#7A1140;
+    --critical:#7A0C1E;
+    --critical-bg:#E8B4B4;
+    --critical-text:#4A0A12;
     --muted:#7C7566;
     --radius:10px;
   }
@@ -103,7 +109,10 @@
   .seat.free{background:var(--free-bg);color:var(--free-text);border-color:var(--free);border-width:1.5px;}
   .seat.occ{background:var(--occ-bg);color:var(--occ-text);border-color:var(--occ);border-width:1.5px;}
   .seat.warn{background:var(--warn-bg);color:var(--warn-text);border-color:var(--warn);border-width:1.5px;}
+  .seat.err{background:var(--error-bg);color:var(--error-text);border-color:var(--error);border-width:1.5px;}
+  .seat.crit{background:var(--critical-bg);color:var(--critical-text);border-color:var(--critical);border-width:1.5px;animation:pulse-crit 1.6s ease-in-out infinite;}
   .seat.pend{background:var(--pend-bg);color:var(--pend-text);border-color:var(--pend);border-width:1.5px;}
+  @keyframes pulse-crit{ 0%,100%{opacity:1;} 50%{opacity:0.62;} }
   .spinner{
     width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--ink);
     border-radius:50%;animation:spin 0.8s linear infinite;
@@ -119,8 +128,9 @@
   td{padding:12px;border-bottom:1px solid var(--line);vertical-align:middle;}
   .badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
   .badge.active{background:var(--free-bg);color:var(--free-text);}
-  .badge.expiring{background:var(--warn-bg);color:var(--warn-text);}
-  .badge.expired{background:var(--occ-bg);color:var(--occ-text);}
+  .badge.warning{background:var(--warn-bg);color:var(--warn-text);}
+  .badge.error{background:var(--error-bg);color:var(--error-text);}
+  .badge.critical{background:var(--critical-bg);color:var(--critical-text);}
   .badge.pending{background:var(--pend-bg);color:var(--pend-text);}
   .field-error{color:var(--occ-text);font-size:12px;margin:-12px 0 14px;display:none;}
   .field-error.show{display:block;}
@@ -130,6 +140,8 @@
   .metric-card.metric-occ{border-left:4px solid var(--occ);}
   .metric-card.metric-free{border-left:4px solid var(--free);}
   .metric-card.metric-warn{border-left:4px solid var(--warn);}
+  .metric-card.metric-err{border-left:4px solid var(--error);}
+  .metric-card.metric-crit{border-left:4px solid var(--critical);}
   .metric-card.active-filter{outline:2px solid var(--ink);outline-offset:-1px;}
   .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;}
   .bar-label{width:130px;flex-shrink:0;color:var(--ink-light);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -274,6 +286,7 @@ let reportsFrom = '';
 let reportsTo = '';
 let reportsData = null;
 let pendingList = [];              // staff-only: pending approval queue
+let cleanupFlags = [];             // staff-only: seats/lockers auto-removed and needing a wipe-down
 
 const REG_DRAFT_KEY = 'vidya_register_draft';
 
@@ -333,6 +346,7 @@ async function loadDataForPage(page){
   }
   if (page === 'dashboard' && session){
     await loadPendingList();
+    await loadCleanupFlags();
   }
 }
 
@@ -385,20 +399,26 @@ function daysUntil(dateStr){
 }
 function statusForDate(dateStr){
   const d = daysUntil(dateStr);
-  if (d < 0) return 'expired';
-  if (d <= 2) return 'expiring';
+  if (d <= -3) return 'critical';
+  if (d <= 0) return 'error';
+  if (d <= 2) return 'warning';
   return 'active';
 }
 function statusOf(student){ return statusForDate(student.expiryDate); }
 function lockerStatusOf(student){ return student.lockerExpiryDate ? statusForDate(student.lockerExpiryDate) : null; }
 
+// A seat/locker is occupied purely by whether a student row exists
+// for it — not by comparing dates. An overdue student still holds
+// their seat (shown in escalating warning/error/critical color)
+// until either staff remove them or the nightly cleanup job does,
+// 3+ days after expiry.
 function occupantOf(floorId, seatNum){
   const label = seatLabel(floorId, seatNum);
-  return students.find(s => s.seatId === label && statusOf(s) !== 'expired');
+  return students.find(s => s.seatId === label);
 }
 function lockerOccupantOf(floorId, num){
   const label = lockerLabel(floorId, num);
-  return students.find(s => s.lockerId === label && lockerStatusOf(s) !== 'expired');
+  return students.find(s => s.lockerId === label);
 }
 
 function paymentAmountOptionsHTML(selected){
@@ -414,7 +434,9 @@ function waLink(student, kind){
   if (phone.length === 10) phone = '91' + phone;
   const daysLeft = daysUntil(student.expiryDate);
   let msg;
-  if (kind === 'expired'){
+  if (kind === 'critical'){
+    msg = 'Hi ' + student.name + ', your Vidyabhyasa study center seat subscription expired on ' + student.expiryDate + ' and is now significantly overdue. Please renew immediately to avoid losing seat ' + student.seatId + '.';
+  } else if (kind === 'error'){
     msg = 'Hi ' + student.name + ', your Vidyabhyasa study center seat subscription expired on ' + student.expiryDate + '. Please renew to continue holding seat ' + student.seatId + '.';
   } else {
     msg = 'Hi ' + student.name + ', a reminder that your Vidyabhyasa study center subscription expires on ' + student.expiryDate + ' (' + Math.max(daysLeft,0) + ' day(s) left). Please renew soon to keep seat ' + student.seatId + '.';
@@ -426,7 +448,9 @@ function lockerWaLink(student, kind){
   if (phone.length === 10) phone = '91' + phone;
   const daysLeft = daysUntil(student.lockerExpiryDate);
   let msg;
-  if (kind === 'expired'){
+  if (kind === 'critical'){
+    msg = 'Hi ' + student.name + ', your Vidyabhyasa locker (' + student.lockerId + ') subscription expired on ' + student.lockerExpiryDate + ' and is now significantly overdue. Please renew immediately to avoid losing the locker.';
+  } else if (kind === 'error'){
     msg = 'Hi ' + student.name + ', your Vidyabhyasa locker (' + student.lockerId + ') subscription expired on ' + student.lockerExpiryDate + '. Please renew to keep the locker.';
   } else {
     msg = 'Hi ' + student.name + ', a reminder that your Vidyabhyasa locker (' + student.lockerId + ') subscription expires on ' + student.lockerExpiryDate + ' (' + Math.max(daysLeft,0) + ' day(s) left). Please renew soon.';
@@ -671,26 +695,40 @@ function pendingHolds(kind, floorId, num){
 
 function renderDashboard(){
   const totalSeats = FLOORS.reduce((a,f)=>a+f.count,0);
-  let seatsOccupied = 0, seatsExpiring = 0;
+  let seatsOccupied = 0, seatsWarning = 0, seatsError = 0, seatsCritical = 0;
   FLOORS.forEach(f=>{
     for(let i=1;i<=f.count;i++){
       const occ = occupantOf(f.id, i);
-      if (occ){ seatsOccupied++; if (statusOf(occ) === 'expiring') seatsExpiring++; }
+      if (occ){
+        seatsOccupied++;
+        const st = statusOf(occ);
+        if (st === 'warning') seatsWarning++;
+        else if (st === 'error') seatsError++;
+        else if (st === 'critical') seatsCritical++;
+      }
     }
   });
   const totalLockers = LOCKERS.reduce((a,f)=>a+f.count,0);
-  let lockersOccupied = 0, lockersExpiring = 0;
+  let lockersOccupied = 0, lockersWarning = 0, lockersError = 0, lockersCritical = 0;
   LOCKERS.forEach(f=>{
     for(let i=1;i<=f.count;i++){
       const occ = lockerOccupantOf(f.id, i);
-      if (occ){ lockersOccupied++; if (lockerStatusOf(occ) === 'expiring') lockersExpiring++; }
+      if (occ){
+        lockersOccupied++;
+        const st = lockerStatusOf(occ);
+        if (st === 'warning') lockersWarning++;
+        else if (st === 'error') lockersError++;
+        else if (st === 'critical') lockersCritical++;
+      }
     }
   });
 
   const isLockers = dashView === 'lockers';
   const total = isLockers ? totalLockers : totalSeats;
   const occupied = isLockers ? lockersOccupied : seatsOccupied;
-  const expiringSoon = isLockers ? lockersExpiring : seatsExpiring;
+  const warningCount = isLockers ? lockersWarning : seatsWarning;
+  const errorCount = isLockers ? lockersError : seatsError;
+  const criticalCount = isLockers ? lockersCritical : seatsCritical;
   const free = total - occupied;
   const list = isLockers ? LOCKERS : FLOORS;
   const activeFloorId = isLockers ? currentLockerFloor : currentFloor;
@@ -709,12 +747,14 @@ function renderDashboard(){
     } else if (!occ){
       cls = 'free'; cellStatus = 'free'; cellTitle = 'Free';
     } else {
-      cls = st === 'expiring' ? 'warn' : 'occ';
-      cellStatus = st === 'expiring' ? 'expiring' : 'occupied';
+      cellStatus = st;
+      cls = st === 'critical' ? 'crit' : st === 'error' ? 'err' : st === 'warning' ? 'warn' : 'occ';
       cellTitle = occ.name;
     }
 
-    let matchesFilter = dashStatusFilter === 'all' || dashStatusFilter === cellStatus;
+    let matchesFilter = dashStatusFilter === 'all'
+      || dashStatusFilter === cellStatus
+      || (dashStatusFilter === 'occupied' && !!occ);
     let matchesSearch = true;
     if (q){
       const seatNumStr = String(i);
@@ -730,7 +770,11 @@ function renderDashboard(){
   }
   if (!cells) cells = '<p class="empty" style="grid-column:1/-1;">No seats match this filter on this floor.</p>';
 
-  const filterLabel = { all:'', free:'Showing free only', occupied:'Showing occupied only', expiring:'Showing expiring only', pending:'Showing pending approval only' }[dashStatusFilter];
+  const filterLabel = {
+    all:'', free:'Showing free only', occupied:'Showing occupied only',
+    warning:'Showing expiring within 2 days', error:'Showing overdue (0-2 days)',
+    critical:'Showing 3+ days overdue', pending:'Showing pending approval only'
+  }[dashStatusFilter];
 
   return `
     <div class="page-head">
@@ -751,8 +795,16 @@ function renderDashboard(){
       <div class="metric-card metric-free clickable ${dashStatusFilter==='free'?'active-filter':''}" data-statusfilter="free">
         <div class="label">Free</div><div class="value">${free}</div>
       </div>
-      <div class="metric-card metric-warn clickable ${dashStatusFilter==='expiring'?'active-filter':''}" data-statusfilter="expiring">
-        <div class="label">Expiring in 2 days</div><div class="value">${expiringSoon}</div>
+      <div class="metric-card metric-warn clickable ${dashStatusFilter==='warning'?'active-filter':''}" data-statusfilter="warning">
+        <div class="label">Expiring in 2 days</div><div class="value">${warningCount}</div>
+      </div>
+    </div>
+    <div class="metrics">
+      <div class="metric-card metric-err clickable ${dashStatusFilter==='error'?'active-filter':''}" data-statusfilter="error">
+        <div class="label">Overdue</div><div class="value">${errorCount}</div>
+      </div>
+      <div class="metric-card metric-crit clickable ${dashStatusFilter==='critical'?'active-filter':''}" data-statusfilter="critical">
+        <div class="label">Critical (3+ days)</div><div class="value">${criticalCount}</div>
       </div>
     </div>
     <div class="card">
@@ -763,18 +815,40 @@ function renderDashboard(){
         <span><span class="dot" style="background:var(--free)"></span>Free</span>
         <span><span class="dot" style="background:var(--occ)"></span>Occupied</span>
         <span><span class="dot" style="background:var(--warn)"></span>Expiring within 2 days</span>
+        <span><span class="dot" style="background:var(--error)"></span>Overdue</span>
+        <span><span class="dot" style="background:var(--critical)"></span>Critical (3+ days)</span>
         <span><span class="dot" style="background:var(--pend)"></span>Pending approval</span>
       </div>
       <div class="filter-row">
         <div class="filter-btn ${dashStatusFilter==='all'?'active':''}" data-dashfilter="all">All</div>
         <div class="filter-btn ${dashStatusFilter==='free'?'active':''}" data-dashfilter="free">Free</div>
         <div class="filter-btn ${dashStatusFilter==='occupied'?'active':''}" data-dashfilter="occupied">Occupied</div>
-        <div class="filter-btn ${dashStatusFilter==='expiring'?'active':''}" data-dashfilter="expiring">Expiring</div>
+        <div class="filter-btn ${dashStatusFilter==='warning'?'active':''}" data-dashfilter="warning">Expiring</div>
+        <div class="filter-btn ${dashStatusFilter==='error'?'active':''}" data-dashfilter="error">Overdue</div>
+        <div class="filter-btn ${dashStatusFilter==='critical'?'active':''}" data-dashfilter="critical">Critical</div>
         <div class="filter-btn ${dashStatusFilter==='pending'?'active':''}" data-dashfilter="pending">Pending</div>
         <div class="search-box"><input type="text" id="dash-search" placeholder="Search name, phone, or seat #" value="${dashSearch}"></div>
       </div>
       ${filterLabel ? `<p style="font-size:12px;color:var(--muted);margin:-8px 0 14px;">${filterLabel} (${visibleCount} shown) — <a href="#" id="dash-clear-filter" style="color:var(--ink-light);">clear filter</a></p>` : ''}
       <div class="seat-grid">${cells}</div>
+    </div>
+    ${renderCleanupPanel()}
+  `;
+}
+
+function renderCleanupPanel(){
+  if (!cleanupFlags.length) return '';
+  const rows = cleanupFlags.map(f=>`
+    <div class="row">
+      <span>${f.resourceType === 'seat' ? 'Seat' : 'Locker'} ${f.resourceId} <span style="color:var(--muted);">(${f.floor})</span></span>
+      <span><button class="btn btn-sm btn-outline" data-clearcleanup="${f.id}">Mark cleaned</button></span>
+    </div>
+  `).join('');
+  return `
+    <div class="card" style="border-left:4px solid var(--critical);">
+      <h3 style="font-size:15px;margin-bottom:4px;">Needs cleaning <span class="badge critical" style="margin-left:6px;">${cleanupFlags.length}</span></h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Auto-removed after being 3+ days overdue — give these a wipe-down before the next student sits there.</p>
+      ${rows}
     </div>
   `;
 }
@@ -1036,7 +1110,7 @@ function renderSubscriptions(){
   const rows = list.map(s=>{
     const st = statusOf(s);
     const d = daysUntil(s.expiryDate);
-    const daysLabel = st==='expired' ? Math.abs(d)+'d overdue' : d+'d left';
+    const daysLabel = (st==='error' || st==='critical') ? Math.abs(d)+'d overdue' : d+'d left';
     const lst = lockerStatusOf(s);
     const lockerCell = s.lockerId
       ? `${s.lockerId}<br><span class="badge ${lst}" style="margin-top:2px;display:inline-block;">${lst}</span>`
@@ -1063,13 +1137,14 @@ function renderSubscriptions(){
       <h2>Subscriptions</h2>
       <p>Track renewals, record payments, and send WhatsApp reminders before and after expiry.</p>
     </div>
-    <div class="notice">WhatsApp reminders open a pre-filled chat you send manually. To automate sending later, you'd connect a WhatsApp Business API or SMS gateway.</div>
+    <div class="notice">WhatsApp reminders open a pre-filled chat you send manually. To automate sending later, you'd connect a WhatsApp Business API or SMS gateway. Students 3+ days overdue (critical) are automatically removed overnight and flagged for cleaning on the Dashboard.</div>
     <div class="card">
       <div class="filter-row">
         <div class="filter-btn ${subFilter==='all'?'active':''}" data-filter="all">All (${students.length})</div>
         <div class="filter-btn ${subFilter==='active'?'active':''}" data-filter="active">Active</div>
-        <div class="filter-btn ${subFilter==='expiring'?'active':''}" data-filter="expiring">Expiring soon</div>
-        <div class="filter-btn ${subFilter==='expired'?'active':''}" data-filter="expired">Expired</div>
+        <div class="filter-btn ${subFilter==='warning'?'active':''}" data-filter="warning">Expiring soon</div>
+        <div class="filter-btn ${subFilter==='error'?'active':''}" data-filter="error">Overdue</div>
+        <div class="filter-btn ${subFilter==='critical'?'active':''}" data-filter="critical">Critical</div>
         <select id="sub-sort" style="width:auto;margin:0 0 0 4px;">
           <option value="expiry" ${subSort==='expiry'?'selected':''}>Sort: expiry date</option>
           <option value="name" ${subSort==='name'?'selected':''}>Sort: name</option>
@@ -1168,7 +1243,12 @@ function renderReports(){
       <div class="metric-card"><div class="label">Active students</div><div class="value">${r.snapshot.totalActiveStudents}</div></div>
       <div class="metric-card"><div class="label">Seat occupancy</div><div class="value">${r.snapshot.seatOccupancyPct}%</div></div>
       <div class="metric-card"><div class="label">Locker occupancy</div><div class="value">${r.snapshot.lockerOccupancyPct}%</div></div>
-      <div class="metric-card"><div class="label">Expiring in 2 days</div><div class="value">${r.snapshot.expiringSoon}</div></div>
+      <div class="metric-card metric-warn"><div class="label">Expiring in 2 days</div><div class="value">${r.snapshot.warningCount}</div></div>
+    </div>
+    <div class="metrics">
+      <div class="metric-card metric-err"><div class="label">Overdue</div><div class="value">${r.snapshot.errorCount}</div></div>
+      <div class="metric-card metric-crit"><div class="label">Critical (3+ days)</div><div class="value">${r.snapshot.criticalCount}</div></div>
+      <div class="metric-card"><div class="label">Needs cleaning</div><div class="value">${r.snapshot.needsCleaning}</div></div>
     </div>
 
     <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
@@ -1199,6 +1279,15 @@ async function loadPendingList(){
   }catch(e){
     pendingList = [];
     showToast(e.message || 'Failed to load pending requests');
+  }
+}
+
+async function loadCleanupFlags(){
+  try{
+    const data = await apiGet('/api/cleanup');
+    cleanupFlags = data.flags || [];
+  }catch(e){
+    cleanupFlags = [];
   }
 }
 
@@ -1504,7 +1593,7 @@ function showStaffLockerModal(floorId, num){
   const occ = lockerOccupantOf(floorId, num);
   const modalRoot = document.getElementById('modal-root');
   if (!occ){
-    const eligible = students.filter(s => statusOf(s) !== 'expired' && (!s.lockerId || lockerStatusOf(s) === 'expired'));
+    const eligible = students.filter(s => !s.lockerId || lockerStatusOf(s) === 'error' || lockerStatusOf(s) === 'critical');
     const options = eligible.map(s => `<option value="${s.id}">${s.name} — seat ${s.seatId}</option>`).join('');
     modalRoot.innerHTML = `
       <div class="modal-overlay" id="ov">
@@ -1753,6 +1842,19 @@ function attachHandlers(){
       el.onclick = ()=>{
         if (el.dataset.pending) return showPendingHoldModal(el.dataset.kind, el.dataset.floor, Number(el.dataset.num));
         showStaffSeatModal(el.dataset.kind, el.dataset.floor, Number(el.dataset.num));
+      };
+    });
+    document.querySelectorAll('[data-clearcleanup]').forEach(el=>{
+      el.onclick = async ()=>{
+        el.disabled = true; el.textContent = 'Clearing…';
+        try{
+          await apiPost('/api/cleanup', { flagId: el.dataset.clearcleanup });
+          await loadCleanupFlags();
+          render();
+        }catch(err){
+          showToast(err.message || 'Failed to update');
+          el.disabled = false; el.textContent = 'Mark cleaned';
+        }
       };
     });
   }

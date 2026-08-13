@@ -12,7 +12,7 @@ export default async function handler(req, res){
     // A seat/locker is held if it's an active student OR an
     // unresolved pending request — either way it's not free.
     const seatTaken = await sql`
-      select 1 from students where seat_id = ${b.seatId} and expiry_date >= current_date
+      select 1 from students where seat_id = ${b.seatId}
       union all
       select 1 from pending_registrations where seat_id = ${b.seatId} and status = 'pending'
       limit 1`;
@@ -20,7 +20,7 @@ export default async function handler(req, res){
 
     if (b.lockerId){
       const lockerTaken = await sql`
-        select 1 from students where locker_id = ${b.lockerId} and locker_expiry_date >= current_date
+        select 1 from students where locker_id = ${b.lockerId}
         union all
         select 1 from pending_registrations where locker_id = ${b.lockerId} and status = 'pending'
         limit 1`;

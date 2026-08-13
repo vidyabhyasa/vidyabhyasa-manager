@@ -98,7 +98,7 @@ async function doApprove(req, res, session){
   const p = rows[0];
   if (!p) return res.status(404).json({ error: 'Pending request not found (it may already be resolved).' });
 
-  const seatTaken = await sql`select 1 from students where seat_id = ${p.seat_id} and expiry_date >= current_date limit 1`;
+  const seatTaken = await sql`select 1 from students where seat_id = ${p.seat_id} limit 1`;
   if (seatTaken.length) return res.status(409).json({ error: 'That seat is now occupied by someone else. Reject this request or move it to a different seat first.' });
 
   const today = todayISO();

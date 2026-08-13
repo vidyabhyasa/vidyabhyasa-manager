@@ -66,7 +66,7 @@ async function doLocker(req, res){
   const { lockerId, floorId, months, amount } = req.body || {};
   if (!lockerId || !floorId || !months || !amount) return res.status(400).json({ error: 'lockerId, floorId, months, and amount are required' });
 
-  const taken = await sql`select 1 from students where locker_id = ${lockerId} and locker_expiry_date >= current_date limit 1`;
+  const taken = await sql`select 1 from students where locker_id = ${lockerId} limit 1`;
   if (taken.length) return res.status(409).json({ error: 'That locker was just taken. Please pick another.' });
 
   const today = todayISO();

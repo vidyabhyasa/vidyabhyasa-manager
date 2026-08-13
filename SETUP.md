@@ -27,6 +27,8 @@ endpoint (database connection, auth helpers, email, config) lives in
 5. Then run `migration-01-approvals.sql` too (same SQL Editor) — this
    adds the pending-approval queue used by the new registration flow.
    Safe to run even if you're not sure whether it's already applied.
+6. Then run `migration-02-notifications.sql` — adds the table that
+   tracks seats/lockers needing a physical clean after auto-removal.
 
 ## 2. Push this project to GitHub
 
@@ -60,8 +62,18 @@ Vercel deploys from a Git repository, so this needs to be in one.
      and paste it here. See "Setting up email" below for the full steps.
    - `RESEND_FROM_EMAIL` — the "from" address bills are sent from, e.g.
      `Vidyabhyasa <bills@yourdomain.com>` — also covered below.
+   - `CRON_SECRET` — any random string. Vercel automatically sends this
+     as a Bearer token when it triggers the nightly cleanup job, so
+     the endpoint can verify the request actually came from Vercel's
+     scheduler and not a random visitor. Generate one the same way as
+     `JWT_SECRET`.
 3. Click **Deploy**. In under a minute you'll get a live URL like
    `https://vidyabhyasa-manager.vercel.app`.
+
+Vercel will also automatically pick up the **Cron Job** defined in
+`vercel.json` — it runs once a day at 3am UTC and auto-removes any
+student who's 3+ days overdue (Hobby plan supports daily cron jobs,
+no upgrade needed).
 
 ## Setting up email (Resend)
 
@@ -172,6 +184,45 @@ Staff review these under the new **Pending approvals** page:
 - **Reject** (with an optional reason) → the seat/locker becomes free
   again immediately
 
+## Notifications and auto-removal (Stage 2)
+
+Every occupied seat/locker now has one of four statuses, based on
+days until (or past) expiry:
+
+| Status | Meaning | Color |
+|---|---|---|
+| Active | More than 2 days left | red (plain occupied) |
+| Warning | 1-2 days left | orange |
+| Error | Day of expiry through 2 days overdue | rose |
+| Critical | 3+ days overdue | dark red, pulsing |
+
+**A seat is "occupied" for as long as a student record exists for
+it** — expiry status no longer determines availability by itself.
+That's a deliberate change from Stage 1: it means an overdue student
+keeps visibly holding their seat (in escalating warning colors)
+instead of the seat silently reopening the moment their subscription
+lapses.
+
+**The nightly cron job** (`api/cron-cleanup.js`, scheduled in
+`vercel.json`) is what actually frees a seat once someone is 3+ days
+overdue:
+- If the **seat** is 3+ days overdue, the whole student record is
+  removed, and both the seat (and locker, if they had one) are
+  flagged as **needing cleaning**.
+- If only the **locker** is 3+ days overdue (the seat itself is still
+  current — this happens because seat and locker renewals are
+  tracked independently), just the locker assignment is cleared and
+  flagged — the student keeps their seat.
+
+Flagged items show up in a **Needs cleaning** panel on the Dashboard,
+with a "Mark cleaned" button per item — this is purely a staff to-do
+list; a flagged seat is already free for new bookings the moment it's
+flagged, cleaning it is a separate physical task.
+
+You can trigger the cleanup job manually (without waiting for 3am) by
+being logged in as a founder and visiting
+`https://your-site.vercel.app/api/cron-cleanup` — useful for testing.
+
 ## What changed from the Supabase version
 
 - **Free-only Availability**: the public page shows *only* free seats
@@ -196,10 +247,13 @@ Staff review these under the new **Pending approvals** page:
 
 ## Known limitations
 
-- **This is Stage 1 of 3** (approval pipeline + multi-step form). Not
-  yet built: expiry notifications/auto-removal (Stage 2), and audit
-  log, founder payment editing, seat/locker swap, editing an existing
-  occupant, and "share bill" (Stage 3).
+- **This is Stage 2 of 3** (approval pipeline + multi-step form +
+  notifications/auto-removal). Not yet built: audit log, founder
+  payment editing, seat/locker swap, editing an existing occupant,
+  and "share bill" (Stage 3).
+- **Vercel Hobby cron timing isn't exact-to-the-minute** — it's
+  documented to run within the scheduled hour, not necessarily at
+  exactly 3:00am. Fine for a once-a-day cleanup job.
 - **Same race-condition caveat as before**: two people requesting the
   exact same seat in the same instant is possible in theory; the app
   detects it and asks the second person to retry, but it's not a hard

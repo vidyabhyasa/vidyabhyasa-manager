@@ -4,11 +4,11 @@ import { FLOORS, LOCKERS, seatLabel, lockerLabel } from '../lib/layout.js';
 export default async function handler(req, res){
   try{
     const occupiedSeats = await sql`
-      select seat_id from students where expiry_date >= current_date
+      select seat_id from students
       union
       select seat_id from pending_registrations where status = 'pending'`;
     const occupiedLockers = await sql`
-      select locker_id from students where locker_id is not null and locker_expiry_date >= current_date
+      select locker_id from students where locker_id is not null
       union
       select locker_id from pending_registrations where locker_id is not null and status = 'pending'`;
     const occSeatSet = new Set(occupiedSeats.map(r => r.seat_id));
