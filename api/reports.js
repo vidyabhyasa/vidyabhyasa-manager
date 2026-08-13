@@ -65,11 +65,11 @@ export default async function handler(req, res){
     const totalActiveStudents = allStudents.length;
     const activeWithLocker = allStudents.filter(s=>s.lockerId).length;
 
-    let warningCount = 0, errorCount = 0, criticalCount = 0;
+    let warningCount = 0, overdueCount = 0, criticalCount = 0;
     allStudents.forEach(s=>{
       const d = daysUntil(s.expiryDate, today);
-      if (d <= -3) criticalCount++;
-      else if (d <= 0) errorCount++;
+      if (d <= -1) criticalCount++;
+      else if (d === 0) overdueCount++;
       else if (d <= 2) warningCount++;
     });
 
@@ -99,7 +99,7 @@ export default async function handler(req, res){
         activeWithLocker,
         lockerOccupancyPct: Math.round((activeWithLocker / TOTAL_LOCKERS) * 100),
         warningCount,
-        errorCount,
+        overdueCount,
         criticalCount,
         needsCleaning
       }
