@@ -1,6 +1,7 @@
 import { sql, addMonths, todayISO, toDateStr, toImageBuffer } from '../lib/db.js';
 import { requireStaff } from '../lib/auth.js';
 import { sendEmail, billEmailHTML } from '../lib/email.js';
+import { logAudit } from '../lib/audit.js';
 
 const EDITABLE = {
   name: 'name', phone: 'phone', email: 'email', examPrep: 'exam_prep',
@@ -18,7 +19,7 @@ export default async function handler(req, res){
     }
     if (req.method === 'POST'){
       const action = (req.body || {}).action;
-      if (action === 'edit') return await doEdit(req, res);
+      if (action === 'edit') return await doEdit(req, res, session);
       if (action === 'approve') return await doApprove(req, res, session);
       if (action === 'reject') return await doReject(req, res, session);
       return res.status(400).json({ error: 'Unknown or missing action' });
@@ -70,7 +71,7 @@ async function doPhoto(req, res){
   res.status(200).send(toImageBuffer(row.photo));
 }
 
-async function doEdit(req, res){
+async function doEdit(req, res, session){
   const { pendingId, fields } = req.body || {};
   if (!pendingId || !fields) return res.status(400).json({ error: 'pendingId and fields required' });
 
@@ -87,6 +88,13 @@ async function doEdit(req, res){
   values.push(pendingId);
 
   await sql(`update pending_registrations set ${sets.join(', ')} where id = $${i} and status = 'pending'`, values);
+
+  await logAudit({
+    actorId: session.id, actorName: session.label, action: 'edit_pending',
+    targetType: 'pending', targetId: pendingId,
+    details: 'Updated: ' + Object.keys(fields).join(', ')
+  });
+
   res.status(200).json({ ok: true });
 }
 
@@ -143,6 +151,13 @@ async function doApprove(req, res, session){
     });
   }
 
+  await logAudit({
+    actorId: session.id, actorName: session.label, action: 'approve_pending',
+    targetType: 'student', targetId: studentId,
+    details: p.name + ' approved — seat ' + p.seat_id + (p.locker_id ? ', locker ' + p.locker_id : '') +
+      ' (bill ' + (emailResult.sent ? 'emailed' : 'not emailed: ' + emailResult.reason) + ')'
+  });
+
   res.status(200).json({ ok: true, studentId, emailSent: emailResult.sent, emailReason: emailResult.reason });
 }
 
@@ -150,11 +165,20 @@ async function doReject(req, res, session){
   const { pendingId, reason } = req.body || {};
   if (!pendingId) return res.status(400).json({ error: 'pendingId required' });
 
+  const rows = await sql`select name, seat_id, locker_id from pending_registrations where id = ${pendingId}`;
+  const p = rows[0];
+
   await sql`
     update pending_registrations set
       status = 'rejected', resolved_at = now(), resolved_by = ${session.id},
       reject_reason = ${reason || null}, payment_screenshot = null
     where id = ${pendingId} and status = 'pending'`;
+
+  await logAudit({
+    actorId: session.id, actorName: session.label, action: 'reject_pending',
+    targetType: 'pending', targetId: pendingId,
+    details: (p ? p.name + ' — seat ' + p.seat_id : pendingId) + (reason ? ' — reason: ' + reason : ' — no reason given')
+  });
 
   res.status(200).json({ ok: true });
 }

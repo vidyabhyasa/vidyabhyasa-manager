@@ -200,6 +200,7 @@
       <div class="nav-item" data-page="register"><span class="nav-icon">＋</span> New registration</div>
       <div class="nav-item auth-only" data-page="subscriptions"><span class="nav-icon">⏰</span> Subscriptions</div>
       <div class="nav-item auth-only founder-only" data-page="reports"><span class="nav-icon">▤</span> Reports</div>
+      <div class="nav-item auth-only founder-only" data-page="audit"><span class="nav-icon">☰</span> Audit log</div>
     </div>
   </div>
 
@@ -250,7 +251,7 @@ const LOCKER_MONTHLY = 100;
 const LOCKER_DEPOSIT = 200;
 const SEAT_TO_LOCKER_FLOOR = { F1:'L1', F2:'L2' };
 const PAYMENT_PRESETS = [1000, 1900, 2800];
-const GATED_PAGES = ['dashboard', 'subscriptions', 'reports', 'pending'];
+const GATED_PAGES = ['dashboard', 'subscriptions', 'reports', 'pending', 'audit'];
 
 // Keep these in sync with api/_config.js
 const UPI_ID = 'your-upi-id@bank';
@@ -294,6 +295,7 @@ let reportsTo = '';
 let reportsData = null;
 let pendingList = [];              // staff-only: pending approval queue
 let cleanupFlags = [];             // staff-only: seats/lockers auto-removed and needing a wipe-down
+let auditEntries = [];             // founder-only: audit log
 
 const REG_DRAFT_KEY = 'vidya_register_draft';
 
@@ -305,16 +307,18 @@ const PAGE_PATHS = {
   dashboard: '/dashboard',
   pending: '/pending',
   subscriptions: '/subscriptions',
-  reports: '/reports'
+  reports: '/reports',
+  audit: '/audit'
 };
 const PATH_TO_PAGE = {
   '/': 'availability',
   '/dashboard': 'dashboard',
   '/pending': 'pending',
   '/subscriptions': 'subscriptions',
-  '/reports': 'reports'
+  '/reports': 'reports',
+  '/audit': 'audit'
 };
-const KNOWN_PAGES = ['availability', 'dashboard', 'pending', 'register', 'subscriptions', 'reports'];
+const KNOWN_PAGES = ['availability', 'dashboard', 'pending', 'register', 'subscriptions', 'reports', 'audit'];
 
 function pathForPage(page, step){
   if (page === 'register'){
@@ -354,6 +358,10 @@ async function loadDataForPage(page){
   if (page === 'dashboard' && session){
     await loadPendingList();
     await loadCleanupFlags();
+  }
+  if (page === 'audit' && session && session.role === 'founder'){
+    render();
+    await loadAuditLog();
   }
 }
 
@@ -642,12 +650,17 @@ function render(){
     currentPage = 'dashboard';
     history.replaceState({ page: 'dashboard' }, '', pathForPage('dashboard'));
     main.innerHTML = renderDashboard();
+  } else if (currentPage === 'audit' && (!session || session.role !== 'founder')){
+    currentPage = 'dashboard';
+    history.replaceState({ page: 'dashboard' }, '', pathForPage('dashboard'));
+    main.innerHTML = renderDashboard();
   } else if (currentPage === 'dashboard') main.innerHTML = renderDashboard();
   else if (currentPage === 'availability') main.innerHTML = renderAvailability();
   else if (currentPage === 'register') main.innerHTML = renderRegister();
   else if (currentPage === 'subscriptions') main.innerHTML = renderSubscriptions();
   else if (currentPage === 'reports') main.innerHTML = renderReports();
   else if (currentPage === 'pending') main.innerHTML = renderPending();
+  else if (currentPage === 'audit') main.innerHTML = renderAuditLog();
   attachHandlers();
 }
 
@@ -1330,6 +1343,16 @@ async function loadCleanupFlags(){
   }
 }
 
+async function loadAuditLog(){
+  try{
+    const data = await apiGet('/api/audit-log');
+    auditEntries = data.entries || [];
+  }catch(e){
+    auditEntries = [];
+    showToast(e.message || 'Failed to load audit log');
+  }
+}
+
 function timeAgo(isoString){
   const then = new Date(isoString);
   const diffMs = Date.now() - then.getTime();
@@ -1340,6 +1363,37 @@ function timeAgo(isoString){
   if (hours < 24) return hours + ' hour' + (hours>1?'s':'') + ' ago';
   const days = Math.round(hours / 24);
   return days + ' day' + (days>1?'s':'') + ' ago';
+}
+
+function renderAuditLog(){
+  const actionLabels = {
+    approve_pending: 'Approved registration', reject_pending: 'Rejected registration',
+    edit_pending: 'Edited pending request', edit_student: 'Edited student details',
+    remove_student: 'Removed student', record_payment: 'Recorded payment',
+    edit_payment: 'Edited payment', delete_payment: 'Deleted payment',
+    assign_locker: 'Assigned locker', remove_locker: 'Removed locker',
+    swap_seat: 'Moved seat', swap_locker: 'Moved locker', resend_bill: 'Resent bill'
+  };
+  const rows = auditEntries.map(e=>`
+    <tr>
+      <td style="white-space:nowrap;">${timeAgo(e.createdAt)}<br><span style="color:var(--muted);font-size:11px;">${new Date(e.createdAt).toLocaleString()}</span></td>
+      <td>${e.actorName || '—'}</td>
+      <td>${actionLabels[e.action] || e.action}</td>
+      <td>${e.details || ''}</td>
+    </tr>
+  `).join('');
+  return `
+    <div class="page-head">
+      <h2>Audit log</h2>
+      <p>Every approval, edit, removal, and payment change made by staff — most recent first.</p>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th>When</th><th>Staff</th><th>Action</th><th>Details</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="4" class="empty">No activity logged yet.</td></tr>'}</tbody>
+      </table>
+    </div>
+  `;
 }
 
 function renderPending(){
@@ -1631,18 +1685,24 @@ function showStaffSeatModal(kind, floorId, num){
             <button class="btn" id="record-payment" data-id="${occ.id}">Record payment</button>
             <a class="btn btn-wa" href="${waLink(occ, st)}" target="_blank" rel="noopener">WhatsApp</a>
             ${!occ.lockerId ? `<button class="btn btn-outline" id="assign-locker" data-id="${occ.id}">Assign locker</button>` : ''}
+            <button class="btn btn-outline" id="edit-student" data-id="${occ.id}">Edit details</button>
+            <button class="btn btn-outline" id="move-seat" data-id="${occ.id}">Move seat</button>
+            ${occ.lockerId ? `<button class="btn btn-outline" id="move-locker" data-id="${occ.id}">Move locker</button>` : ''}
+            <button class="btn btn-outline" id="share-bill" data-id="${occ.id}">Share bill</button>
+            <button class="btn btn-outline" id="payment-history" data-id="${occ.id}">Payment history</button>
             <button class="btn btn-outline" id="remove-student" data-id="${occ.id}">Remove</button>
             <button class="btn btn-outline" id="close-modal">Close</button>
           </div>
         </div>
       </div>`;
-    document.getElementById('remove-student').onclick = async (e)=>{
-      const id = e.target.dataset.id;
-      await apiPost('/api/student-actions', { action: 'delete', studentId: id }).catch(()=>{});
-      await loadFullStudents(); await loadPublicAvailability();
-      closeModal(); render(); showToast('Student removed');
-    };
+    document.getElementById('remove-student').onclick = ()=> showRemoveReasonModal(occ.id, ()=>render());
     document.getElementById('record-payment').onclick = ()=> showPaymentModal(occ.id);
+    document.getElementById('edit-student').onclick = ()=> showEditStudentModal(occ.id);
+    document.getElementById('move-seat').onclick = ()=> showSwapModal(occ.id, 'seat');
+    document.getElementById('share-bill').onclick = ()=> showShareBillModal(occ.id);
+    document.getElementById('payment-history').onclick = ()=> showPaymentHistoryModal(occ.id);
+    const moveLockerBtn = document.getElementById('move-locker');
+    if (moveLockerBtn) moveLockerBtn.onclick = ()=> showSwapModal(occ.id, 'locker');
     const assignBtn = document.getElementById('assign-locker');
     if (assignBtn) assignBtn.onclick = ()=> showAssignLockerModal(occ.id);
     if (occ.hasIdPhoto){
@@ -1834,6 +1894,240 @@ function showAssignLockerModal(studentId){
       await loadFullStudents(); await loadPublicAvailability();
       closeModal(); render(); showToast('Locker ' + lockerId + ' assigned to ' + s.name);
     }catch(err){ showToast(err.message); }
+  };
+}
+
+function showEditStudentModal(studentId){
+  const s = students.find(x=>x.id===studentId);
+  if (!s) return;
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Edit details</h3>
+        <label>Full name</label>
+        <input type="text" id="es-name" value="${s.name}">
+        <label>Phone</label>
+        <input type="tel" id="es-phone" value="${s.phone}" maxlength="10">
+        <small class="field-error" id="err-es-phone"></small>
+        <label>Email</label>
+        <input type="email" id="es-email" value="${s.email||''}">
+        <label>Exam</label>
+        <input type="text" id="es-exam" value="${s.examPrep}">
+        <div class="modal-actions">
+          <button class="btn" id="es-save">Save changes</button>
+          <button class="btn btn-outline" id="close-modal">Close</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+  document.getElementById('es-save').onclick = async ()=>{
+    const phoneVal = digitsOnly(document.getElementById('es-phone').value);
+    if (!isValidPhone(phoneVal)){ showFieldError('es-phone','err-es-phone','Phone number must be exactly 10 digits.'); return; }
+    const fields = {
+      name: document.getElementById('es-name').value.trim(),
+      phone: phoneVal,
+      email: document.getElementById('es-email').value.trim() || null,
+      examPrep: document.getElementById('es-exam').value.trim()
+    };
+    try{
+      await apiPost('/api/student-actions', { action: 'edit', studentId, fields });
+      await loadFullStudents();
+      closeModal(); render(); showToast('Details updated');
+    }catch(err){ showToast(err.message || 'Failed to save changes'); }
+  };
+}
+
+function showSwapModal(studentId, kind){
+  const s = students.find(x=>x.id===studentId);
+  if (!s) return;
+  let options = '';
+  if (kind === 'seat'){
+    FLOORS.forEach(f=>{
+      for(let i=1;i<=f.count;i++){
+        if (!occupantOf(f.id,i)) options += `<option value="${seatLabel(f.id,i)}" data-floor="${f.id}">${f.label} — Seat ${i}</option>`;
+      }
+    });
+  } else {
+    LOCKERS.forEach(f=>{
+      for(let i=1;i<=f.count;i++){
+        if (!lockerOccupantOf(f.id,i)) options += `<option value="${lockerLabel(f.id,i)}" data-floor="${f.id}">${f.label} — Locker ${i}</option>`;
+      }
+    });
+  }
+  const currentLabel = kind === 'seat' ? s.seatId : s.lockerId;
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Move ${kind}</h3>
+        <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">${s.name} — currently ${kind} ${currentLabel}</p>
+        <label>Move to</label>
+        <select id="swap-target">${options || `<option value="">No free ${kind}s available</option>`}</select>
+        <div class="modal-actions">
+          <button class="btn" id="swap-submit">Move</button>
+          <button class="btn btn-outline" id="close-modal">Close</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+  document.getElementById('swap-submit').onclick = async ()=>{
+    const sel = document.getElementById('swap-target');
+    const targetId = sel.value;
+    if (!targetId){ showToast('No free ' + kind + ' selected'); return; }
+    const targetFloor = sel.selectedOptions[0].dataset.floor;
+    try{
+      await apiPost('/api/student-actions', { action: 'swap', studentId, kind, targetId, targetFloor });
+      await loadFullStudents(); await loadPublicAvailability();
+      closeModal(); render(); showToast(s.name + ' moved to ' + kind + ' ' + targetId);
+    }catch(err){ showToast(err.message || 'Failed to move'); }
+  };
+}
+
+function showShareBillModal(studentId){
+  const s = students.find(x=>x.id===studentId);
+  if (!s) return;
+  const billText = 'Vidyabhyasa Study Center — Receipt\n' +
+    'Name: ' + s.name + '\n' +
+    'Seat: ' + s.seatId + (s.lockerId ? ' · Locker: ' + s.lockerId : '') + '\n' +
+    'Subscription: ' + s.durationMonths + ' month(s), joined ' + s.joinDate + '\n' +
+    'Valid until: ' + s.expiryDate + (s.lockerExpiryDate ? ' (locker until ' + s.lockerExpiryDate + ')' : '') + '\n' +
+    'Total paid: ₹' + totalPaid(s);
+  let phone = (s.phone || '').replace(/\D/g,'');
+  if (phone.length === 10) phone = '91' + phone;
+  const waUrl = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(billText);
+
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Share bill</h3>
+        <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">${s.name}</p>
+        <div class="modal-actions" style="flex-direction:column;align-items:stretch;">
+          <a class="btn btn-wa" href="${waUrl}" target="_blank" rel="noopener" style="justify-content:center;">Share via WhatsApp</a>
+          ${s.email ? `<button class="btn" id="resend-email-btn" style="justify-content:center;">Resend bill email</button>` : `<p style="font-size:12px;color:var(--muted);">No email on file — WhatsApp only.</p>`}
+          <button class="btn btn-outline" id="close-modal" style="justify-content:center;">Close</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+  const resendBtn = document.getElementById('resend-email-btn');
+  if (resendBtn) resendBtn.onclick = async ()=>{
+    resendBtn.disabled = true; resendBtn.textContent = 'Sending…';
+    try{
+      const result = await apiPost('/api/student-actions', { action: 'resendBill', studentId });
+      showToast(result.emailSent ? 'Bill emailed to ' + s.email : 'Failed to send: ' + (result.emailReason||'unknown error'));
+      closeModal();
+    }catch(err){
+      showToast(err.message || 'Failed to send email');
+      resendBtn.disabled = false; resendBtn.textContent = 'Resend bill email';
+    }
+  };
+}
+
+function showPaymentHistoryModal(studentId){
+  const s = students.find(x=>x.id===studentId);
+  if (!s) return;
+  const isFounder = session && session.role === 'founder';
+  const rows = (s.payments || []).slice().reverse().map((p,idx)=>`
+    <div class="row" data-payment-idx="${idx}">
+      <span>${p.date} — ${p.note||''}</span>
+      <span>₹${p.amount}${isFounder && p.id ? ` <button class="btn btn-sm btn-outline" data-editpay="${p.id}" data-amount="${p.amount}" data-note="${(p.note||'').replace(/"/g,'&quot;')}">Edit</button> <button class="btn btn-sm btn-outline" data-deletepay="${p.id}">Delete</button>` : ''}</span>
+    </div>
+  `).join('');
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal" style="width:460px;">
+        <h3>Payment history</h3>
+        <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">${s.name} — total paid ₹${totalPaid(s)}</p>
+        <div style="max-height:320px;overflow-y:auto;">
+          ${rows || '<p class="empty">No payments recorded.</p>'}
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" id="close-modal">Close</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+  document.querySelectorAll('[data-editpay]').forEach(el=>{
+    el.onclick = ()=> showEditPaymentModal(studentId, el.dataset.editpay, el.dataset.amount, el.dataset.note);
+  });
+  document.querySelectorAll('[data-deletepay]').forEach(el=>{
+    el.onclick = async ()=>{
+      if (!confirm('Delete this payment record? This cannot be undone.')) return;
+      try{
+        await apiPost('/api/student-actions', { action: 'deletePayment', paymentId: el.dataset.deletepay });
+        await loadFullStudents();
+        showPaymentHistoryModal(studentId);
+        showToast('Payment removed');
+      }catch(err){ showToast(err.message || 'Failed to delete payment'); }
+    };
+  });
+}
+
+function showEditPaymentModal(studentId, paymentId, amount, note){
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Edit payment</h3>
+        <label>Amount (₹)</label>
+        <input type="number" id="ep-amount" value="${amount}" min="0">
+        <label>Note</label>
+        <input type="text" id="ep-note" value="${note}">
+        <div class="modal-actions">
+          <button class="btn" id="ep-save">Save</button>
+          <button class="btn btn-outline" id="close-modal">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('close-modal').onclick = ()=> showPaymentHistoryModal(studentId);
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') showPaymentHistoryModal(studentId); };
+  document.getElementById('ep-save').onclick = async ()=>{
+    const newAmount = Number(document.getElementById('ep-amount').value);
+    const newNote = document.getElementById('ep-note').value.trim();
+    if (newAmount <= 0){ showToast('Enter a valid amount'); return; }
+    try{
+      await apiPost('/api/student-actions', { action: 'editPayment', paymentId, amount: newAmount, note: newNote });
+      await loadFullStudents();
+      showPaymentHistoryModal(studentId);
+      showToast('Payment updated');
+    }catch(err){ showToast(err.message || 'Failed to update payment'); }
+  };
+}
+
+function showRemoveReasonModal(studentId, onDone){
+  const s = students.find(x=>x.id===studentId);
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Remove ${s ? s.name : 'student'}</h3>
+        <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">Their seat${s && s.lockerId ? ' and locker' : ''} will become available immediately.</p>
+        <label>Reason (optional, kept in records)</label>
+        <input type="text" id="remove-reason" placeholder="e.g. Discontinued studies">
+        <div class="modal-actions">
+          <button class="btn" id="remove-confirm" style="background:var(--critical);border-color:var(--critical);">Remove</button>
+          <button class="btn btn-outline" id="close-modal">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+  document.getElementById('remove-confirm').onclick = async ()=>{
+    const reason = document.getElementById('remove-reason').value.trim();
+    try{
+      await apiPost('/api/student-actions', { action: 'delete', studentId, reason });
+      await loadFullStudents(); await loadPublicAvailability();
+      closeModal();
+      if (onDone) onDone();
+      showToast('Student removed');
+    }catch(err){ showToast(err.message || 'Failed to remove student'); }
   };
 }
 
@@ -2141,12 +2435,7 @@ function attachHandlers(){
     search.focus();
     search.setSelectionRange(search.value.length, search.value.length);
     document.querySelectorAll('[data-remove]').forEach(el=>{
-      el.onclick = async ()=>{
-        await apiPost('/api/student-actions', { action: 'delete', studentId: el.dataset.remove }).catch(()=>{});
-        await loadFullStudents(); await loadPublicAvailability();
-        render();
-        showToast('Student removed');
-      };
+      el.onclick = ()=> showRemoveReasonModal(el.dataset.remove, ()=>render());
     });
     document.querySelectorAll('[data-payment]').forEach(el=>{
       el.onclick = ()=> showPaymentModal(el.dataset.payment);

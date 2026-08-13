@@ -29,6 +29,8 @@ endpoint (database connection, auth helpers, email, config) lives in
    Safe to run even if you're not sure whether it's already applied.
 6. Then run `migration-02-notifications.sql` — adds the table that
    tracks seats/lockers needing a physical clean after auto-removal.
+7. Then run `migration-03-audit-log.sql` — adds the audit log table
+   used by the founder's Audit log page.
 
 ## 2. Push this project to GitHub
 
@@ -245,12 +247,31 @@ being logged in as a founder and visiting
   database connection string only ever lives on the server (as a
   Vercel environment variable) — it's never sent to the browser.
 
+## Staff tools and audit log (Stage 3)
+
+Every occupied seat's detail modal now has:
+- **Edit details** — correct name, phone, email, or exam without
+  touching seat/subscription data.
+- **Move seat / Move locker** — reassign an existing student to a
+  different free seat or locker (their subscription dates travel with
+  them).
+- **Share bill** — WhatsApp a receipt summary, or resend the bill
+  email.
+- **Payment history** — every payment logged for that student; a
+  **founder** login can also edit or delete individual payment rows
+  here (correcting a typo'd amount, removing a duplicate, etc.) —
+  managers can view but not edit.
+- **Remove** now asks for an optional reason before deleting, kept in
+  the audit log even after the student record itself is gone.
+
+**Audit log** (founder-only, new nav item) records every approval,
+rejection, edit, removal, payment change, and locker/seat move, with
+who did it and when — the last 300 actions.
+
 ## Known limitations
 
-- **This is Stage 2 of 3** (approval pipeline + multi-step form +
-  notifications/auto-removal). Not yet built: audit log, founder
-  payment editing, seat/locker swap, editing an existing occupant,
-  and "share bill" (Stage 3).
+- **This is Stage 3 of 3** — the originally planned feature set is now
+  complete. Anything from here is a new request, not a missing piece.
 - **Vercel Hobby cron timing isn't exact-to-the-minute** — it's
   documented to run within the scheduled hour, not necessarily at
   exactly 3:00am. Fine for a once-a-day cleanup job.
@@ -261,9 +282,13 @@ being logged in as a founder and visiting
 - **Payment verification is manual** — the QR + screenshot is
   self-reported by the student; staff are expected to actually look at
   the screenshot before approving.
-- **WhatsApp reminders stay manual**, as you asked — the "Send
-  WhatsApp" button opens a pre-filled chat for staff to send.
+- **WhatsApp reminders and bill-sharing stay manual**, as you asked —
+  those buttons open a pre-filled chat for staff to send themselves.
 - **Password resets**: there's no self-serve "forgot password" flow.
   To reset one, use `create-staff-tool.html` again for that person
   with a new password (you'll need to briefly re-add the
   `SETUP_SECRET` env var to do this, then remove it again).
+- **Audit log has no built-in retention/cleanup** — it will grow
+  indefinitely; the page only shows the most recent 300 entries, but
+  older ones stay in the database. Fine for a long while at this
+  scale; worth revisiting if it ever becomes a real storage concern.
