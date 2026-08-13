@@ -15,6 +15,9 @@ free tiers for a single study center's traffic.
    Copy it; you'll need it in step 3.
 4. Open the **SQL Editor** (in Neon's dashboard) and run the whole
    contents of `schema.sql` from this folder.
+5. Then run `migration-01-approvals.sql` too (same SQL Editor) — this
+   adds the pending-approval queue used by the new registration flow.
+   Safe to run even if you're not sure whether it's already applied.
 
 ## 2. Push this project to GitHub
 
@@ -43,14 +46,72 @@ Vercel deploys from a Git repository, so this needs to be in one.
      (64+ characters, no need to remember it).
    - `SETUP_SECRET` — another random string, used once to create your
      staff accounts (step 4). Delete this variable afterward.
+   - `RESEND_API_KEY` — for emailing bills on approval. Sign up at
+     [resend.com](https://resend.com) (free tier), create an API key,
+     and paste it here. See "Setting up email" below for the full steps.
+   - `RESEND_FROM_EMAIL` — the "from" address bills are sent from, e.g.
+     `Vidyabhyasa <bills@yourdomain.com>` — also covered below.
 3. Click **Deploy**. In under a minute you'll get a live URL like
    `https://vidyabhyasa-manager.vercel.app`.
 
+## Setting up email (Resend)
+
+Bills are emailed automatically when staff approve a registration. If
+you skip this, approvals still work — the student just won't get an
+emailed bill (staff will see a toast saying the email wasn't sent).
+
+1. Sign up at [resend.com](https://resend.com) — free tier covers
+   3,000 emails/month, plenty for a single center.
+2. **Fastest way to start (no domain needed):** Resend gives you a
+   test sending address on signup — use that as `RESEND_FROM_EMAIL`
+   to get emails working today.
+3. **For a real "from" address** (e.g. `bills@vidyabhyasa.in`): in
+   Resend, go to Domains → Add Domain, and add the DNS records they
+   give you at wherever your domain is registered. This can take up
+   to a day to verify. Once verified, use an address on that domain
+   as `RESEND_FROM_EMAIL`.
+4. Go to Resend → API Keys → Create API Key, and paste it into
+   Vercel's `RESEND_API_KEY` environment variable.
+5. Redeploy (Vercel → Deployments → ⋯ → Redeploy) after adding these
+   so the functions pick up the new environment variables.
+
+## Setting the UPI payment QR
+
+Open `api/_config.js` in this folder and fill in:
+```js
+export const UPI_ID = 'your-upi-id@bank';
+export const UPI_PAYEE_NAME = 'Vidyabhyasa Study Center';
+```
+**Also update the matching copy of these two lines near the top of
+`index.html`'s `<script>` section** — the frontend generates the QR
+code itself and needs the same values. Push both files together.
+
+The rules & regulations text students must accept before registering
+also lives in `api/_config.js` (`RULES_TEXT`) — edit the wording there,
+and copy the same array into `index.html`'s `RULES_TEXT` constant so
+the two stay in sync.
+
 ## 4. Create your two staff logins
 
-With the site deployed, run this once for the Manager and once for
-the Founder (replace the values, keep the URL pointed at your deployed
-site):
+Use `create-staff-tool.html` (in this folder) — just double-click it to
+open in your browser, no terminal needed:
+
+1. Fill in your site's URL, the `SETUP_SECRET` you set in Vercel, the
+   staff member's email/password/role/display name, and click
+   **Create login**.
+2. Repeat once for the Manager and once for the Founder.
+
+**This requires the updated `admin-create-staff.js` to be deployed** —
+if you set up Vercel before this file was added, push this folder's
+current contents to your GitHub repo again so Vercel redeploys it:
+```bash
+git add .
+git commit -m "Add CORS support for staff creation tool"
+git push
+```
+
+<details>
+<summary>Prefer the terminal? (Mac/Linux/WSL only — not Windows cmd)</summary>
 
 ```bash
 curl -X POST https://your-site.vercel.app/api/admin-create-staff \
@@ -64,10 +125,10 @@ curl -X POST https://your-site.vercel.app/api/admin-create-staff \
   }'
 ```
 
-Run it again with `"role": "founder"` for the founder's account. Any
-computer with `curl` works for this (Mac/Linux terminal, or Windows
-via WSL or Git Bash) — or ask me and I can build you a one-time HTML
-form instead if you'd rather not use the terminal.
+Windows Command Prompt doesn't handle the single quotes in this command
+the same way — use the HTML tool above instead, or run this from
+PowerShell/WSL/Git Bash if you'd rather stick with a terminal.
+</details>
 
 **After creating both accounts, remove the `SETUP_SECRET` environment
 variable from Vercel** (Project Settings → Environment Variables) and
@@ -81,18 +142,40 @@ Open your Vercel URL:
   Founder account you just created, and you'll see Dashboard and
   Subscriptions.
 
+## The new registration flow (Stage 1)
+
+Registration is no longer instant. A student now goes through:
+
+1. **Rules & regulations** — must tick "I agree" to continue.
+2. **Their details** — name, phone, email, ID photo, exam, seat/locker choice.
+3. **Payment** — a UPI QR code (built from your `UPI_ID`) for the chosen
+   amount, plus a required screenshot upload as proof of payment.
+4. **Submitted** — the seat/locker is now held (hidden from Availability
+   for everyone else) but the student is **not yet a real occupant**.
+
+Staff review these under the new **Pending approvals** page:
+- Fetch the ID photo and/or payment screenshot on demand
+- Edit any field before deciding
+- **Approve** → creates the real student record, logs the payment, and
+  emails the bill (if `RESEND_API_KEY` is set and the student gave an
+  email)
+- **Reject** (with an optional reason) → the seat/locker becomes free
+  again immediately
+
 ## What changed from the Supabase version
 
-- **Free-only Availability**: the public page now shows *only* free
-  seats and lockers — no occupied markers, no status colors, no
-  personal data of any kind. Full detail (name, phone, photo, payment
-  history) only ever appears on the staff-only Dashboard.
+- **Free-only Availability**: the public page shows *only* free seats
+  and lockers — no occupied markers, no status colors, no personal
+  data of any kind. Full detail (name, phone, photo, payment history)
+  only ever appears on the staff-only Dashboard.
 - **Custom auth**: staff log in with an email/password checked against
   a `staff` table (passwords hashed with bcrypt), with a signed,
   httpOnly session cookie — Neon has no built-in auth, so this is
   hand-built instead of using Supabase's.
-- **ID photos live in the database** (as bytea) instead of a separate
-  storage bucket, to avoid needing a third service.
+- **ID photos and payment screenshots live in the database** (as
+  bytea) instead of a separate storage bucket, to avoid needing a
+  third service. Payment screenshots are deleted once a request is
+  approved or rejected — they're only needed during review.
 - **Access control moved from the database to the API code.** Supabase
   enforced who-can-see-what at the database level (row-level security).
   Neon has no equivalent tied to a public API layer, so every rule
@@ -103,13 +186,20 @@ Open your Vercel URL:
 
 ## Known limitations
 
-- **Same race-condition caveat as before**: two people registering the
+- **This is Stage 1 of 3** (approval pipeline + multi-step form). Not
+  yet built: expiry notifications/auto-removal (Stage 2), and audit
+  log, founder payment editing, seat/locker swap, editing an existing
+  occupant, and "share bill" (Stage 3).
+- **Same race-condition caveat as before**: two people requesting the
   exact same seat in the same instant is possible in theory; the app
-  detects it and asks the second person to retry, but it's not a
-  hard database-level guarantee.
+  detects it and asks the second person to retry, but it's not a hard
+  database-level guarantee.
+- **Payment verification is manual** — the QR + screenshot is
+  self-reported by the student; staff are expected to actually look at
+  the screenshot before approving.
 - **WhatsApp reminders stay manual**, as you asked — the "Send
   WhatsApp" button opens a pre-filled chat for staff to send.
 - **Password resets**: there's no self-serve "forgot password" flow.
-  To reset one, run the `admin-create-staff` curl command again for
-  that person with a new password (you'll need to briefly re-add the
+  To reset one, use `create-staff-tool.html` again for that person
+  with a new password (you'll need to briefly re-add the
   `SETUP_SECRET` env var to do this, then remove it again).

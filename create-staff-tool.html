@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Create staff login — Vidyabhyasa</title>
+<style>
+  body{ font-family: system-ui, sans-serif; max-width: 480px; margin: 60px auto; padding: 0 20px; color: #16324F; }
+  h1{ font-size: 20px; }
+  p.hint{ color: #7C7566; font-size: 13px; }
+  label{ display:block; font-size: 13px; font-weight: 600; margin: 16px 0 6px; }
+  input, select{ width: 100%; padding: 9px 12px; border: 1px solid #E4DFD1; border-radius: 8px; font-size: 14px; box-sizing: border-box; }
+  button{ margin-top: 20px; padding: 10px 18px; border-radius: 8px; border: none; background: #16324F; color: #fff; font-size: 14px; cursor: pointer; width: 100%; }
+  button:disabled{ opacity: .6; cursor: default; }
+  #result{ margin-top: 16px; font-size: 13px; padding: 10px 14px; border-radius: 8px; display: none; }
+  #result.ok{ display:block; background: #E7F0EB; color: #2F5548; }
+  #result.err{ display:block; background: #FBEAE7; color: #7A2E24; }
+</style>
+</head>
+<body>
+  <h1>Create a staff login</h1>
+  <p class="hint">Open this file in your browser (double-click it) — no terminal needed. Fill this in once per staff member, then delete the SETUP_SECRET from Vercel when you're done.</p>
+
+  <label>Your site's URL</label>
+  <input type="text" id="siteUrl" placeholder="https://vidyabhyasa-manager.vercel.app" value="https://vidyabhyasa-manager.vercel.app">
+
+  <label>Setup secret (from Vercel's SETUP_SECRET variable)</label>
+  <input type="password" id="secret" placeholder="paste your SETUP_SECRET here">
+
+  <label>Staff email</label>
+  <input type="email" id="email" placeholder="manager@vidyabhyasa.example">
+
+  <label>Password</label>
+  <input type="text" id="password" placeholder="choose a strong password">
+
+  <label>Role</label>
+  <select id="role">
+    <option value="manager">Manager</option>
+    <option value="founder">Founder</option>
+  </select>
+
+  <label>Display name</label>
+  <input type="text" id="displayName" placeholder="e.g. Priya (Manager)">
+
+  <button id="submitBtn">Create login</button>
+  <div id="result"></div>
+
+<script>
+document.getElementById('submitBtn').onclick = async () => {
+  const btn = document.getElementById('submitBtn');
+  const result = document.getElementById('result');
+  result.className = ''; result.style.display = 'none';
+
+  const siteUrl = document.getElementById('siteUrl').value.trim().replace(/\/$/, '');
+  const secret = document.getElementById('secret').value;
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const role = document.getElementById('role').value;
+  const displayName = document.getElementById('displayName').value.trim();
+
+  if (!siteUrl || !secret || !email || !password || !displayName){
+    result.textContent = 'Please fill in every field.';
+    result.className = 'err';
+    result.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Creating…';
+  try {
+    const res = await fetch(siteUrl + '/api/admin-create-staff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret, email, password, role, displayName })
+    });
+    const data = await res.json().catch(()=>({}));
+    if (!res.ok) throw new Error(data.error || ('Request failed (' + res.status + ')'));
+    result.textContent = 'Done — ' + displayName + ' (' + role + ') can now log in with that email and password.';
+    result.className = 'ok';
+  } catch (err) {
+    result.textContent = 'Error: ' + err.message;
+    result.className = 'err';
+  } finally {
+    result.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Create login';
+  }
+};
+</script>
+</body>
+</html>

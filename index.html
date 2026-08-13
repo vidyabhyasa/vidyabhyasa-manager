@@ -16,15 +16,15 @@
     --line:#E4DFD1;
     --amber:#E3A857;
     --amber-dark:#8A5A16;
-    --free:#6B9080;
-    --free-bg:#E7F0EB;
-    --free-text:#2F5548;
-    --occ:#C1584B;
-    --occ-bg:#FBEAE7;
-    --occ-text:#7A2E24;
-    --warn:#D9A441;
-    --warn-bg:#FBF1DD;
-    --warn-text:#7A5613;
+    --free:#189B5C;
+    --free-bg:#C7EED9;
+    --free-text:#0B5C36;
+    --occ:#D8291F;
+    --occ-bg:#F8C4C0;
+    --occ-text:#7A140D;
+    --warn:#E0790A;
+    --warn-bg:#FCDBA6;
+    --warn-text:#7A4405;
     --muted:#7C7566;
     --radius:10px;
   }
@@ -97,16 +97,30 @@
     font-size:12px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:transform .1s;
   }
   .seat:hover{transform:scale(1.06);}
-  .seat.free{background:var(--free-bg);color:var(--free-text);border-color:#CBE0D3;}
-  .seat.occ{background:var(--occ-bg);color:var(--occ-text);border-color:#EFC7C0;}
-  .seat.warn{background:var(--warn-bg);color:var(--warn-text);border-color:#F0DBA5;}
+  .seat.free{background:var(--free-bg);color:var(--free-text);border-color:var(--free);border-width:1.5px;}
+  .seat.occ{background:var(--occ-bg);color:var(--occ-text);border-color:var(--occ);border-width:1.5px;}
+  .seat.warn{background:var(--warn-bg);color:var(--warn-text);border-color:var(--warn);border-width:1.5px;}
   table{width:100%;border-collapse:collapse;font-size:13px;}
   th{text-align:left;padding:10px 12px;color:var(--muted);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:0.3px;border-bottom:1px solid var(--line);}
   td{padding:12px;border-bottom:1px solid var(--line);vertical-align:middle;}
-  .badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;}
+  .badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
   .badge.active{background:var(--free-bg);color:var(--free-text);}
   .badge.expiring{background:var(--warn-bg);color:var(--warn-text);}
   .badge.expired{background:var(--occ-bg);color:var(--occ-text);}
+  .field-error{color:var(--occ-text);font-size:12px;margin:-12px 0 14px;display:none;}
+  .field-error.show{display:block;}
+  input.invalid,select.invalid{border-color:var(--occ);background:var(--occ-bg);}
+  .metric-card.clickable{cursor:pointer;transition:transform .1s,box-shadow .1s;}
+  .metric-card.clickable:hover{transform:translateY(-2px);box-shadow:0 4px 10px rgba(22,50,79,0.08);}
+  .metric-card.metric-occ{border-left:4px solid var(--occ);}
+  .metric-card.metric-free{border-left:4px solid var(--free);}
+  .metric-card.metric-warn{border-left:4px solid var(--warn);}
+  .metric-card.active-filter{outline:2px solid var(--ink);outline-offset:-1px;}
+  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;}
+  .bar-label{width:130px;flex-shrink:0;color:var(--ink-light);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .bar-track{flex:1;background:var(--paper-2);border-radius:6px;height:10px;overflow:hidden;}
+  .bar-fill{height:100%;background:var(--ink);border-radius:6px;}
+  .bar-value{width:50px;text-align:right;flex-shrink:0;font-weight:500;color:var(--ink);}
   .filter-row{display:flex;gap:8px;margin-bottom:18px;align-items:center;flex-wrap:wrap;}
   .filter-btn{padding:7px 14px;border-radius:20px;border:1px solid var(--line);background:var(--card);font-size:12px;cursor:pointer;color:var(--muted);}
   .filter-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
@@ -148,8 +162,10 @@
     <div id="nav">
       <div class="nav-item" data-page="availability"><span class="nav-icon">◎</span> Availability</div>
       <div class="nav-item auth-only" data-page="dashboard"><span class="nav-icon">▦</span> Dashboard</div>
+      <div class="nav-item auth-only" data-page="pending"><span class="nav-icon">⏳</span> Pending approvals</div>
       <div class="nav-item" data-page="register"><span class="nav-icon">＋</span> New registration</div>
       <div class="nav-item auth-only" data-page="subscriptions"><span class="nav-icon">⏰</span> Subscriptions</div>
+      <div class="nav-item auth-only founder-only" data-page="reports"><span class="nav-icon">▤</span> Reports</div>
     </div>
   </div>
 
@@ -200,7 +216,23 @@ const LOCKER_MONTHLY = 100;
 const LOCKER_DEPOSIT = 200;
 const SEAT_TO_LOCKER_FLOOR = { F1:'L1', F2:'L2' };
 const PAYMENT_PRESETS = [1000, 1900, 2800];
-const GATED_PAGES = ['dashboard', 'subscriptions'];
+const GATED_PAGES = ['dashboard', 'subscriptions', 'reports', 'pending'];
+
+// Keep these in sync with api/_config.js
+const UPI_ID = 'your-upi-id@bank';
+const UPI_PAYEE_NAME = 'Vidyabhyasa Study Center';
+const RULES_TEXT = [
+  'Seats and lockers are allotted for personal use only and cannot be shared or transferred to another person.',
+  'A valid photo ID must be uploaded at registration and may be asked for again at the center.',
+  'Maintain silence in the study area at all times. Phones must be on silent mode.',
+  'Food is not allowed at the seating area. Water bottles are permitted.',
+  'The center is not responsible for personal belongings left unattended.',
+  'Any damage to furniture or equipment will be charged to the student responsible.',
+  'The locker deposit is refundable only on surrender of the locker in good condition.',
+  'Fees once paid are non-refundable except at the center\u2019s discretion.',
+  'The center reserves the right to reassign or reclaim a seat/locker if fees are not renewed within the grace period after expiry.',
+  'Management reserves the right to update these rules; continued use of the center implies acceptance of the current rules.'
+];
 
 // ============================================================
 // State
@@ -213,11 +245,22 @@ let currentPage = 'availability';
 let dashView = 'seats';
 let currentFloor = 'F1';
 let currentLockerFloor = 'L1';
+let dashStatusFilter = 'all';      // all | free | occupied | expiring
+let dashSearch = '';
 let availView = 'seats';
 let availFloorFilter = 'all';
 let regFloor = 'F1';
+let regStep = 1;                   // 1=rules, 2=details, 3=payment, 4=done
 let subFilter = 'all';
 let subSearch = '';
+let subSort = 'expiry';            // expiry | name | paid
+let reportsPreset = 'today';       // today | month | custom
+let reportsFrom = '';
+let reportsTo = '';
+let reportsData = null;
+let pendingList = [];              // staff-only: pending approval queue
+
+const REG_DRAFT_KEY = 'vidya_register_draft';
 
 // ============================================================
 // Date / status helpers
@@ -294,8 +337,75 @@ function showToast(msg){
 }
 
 // ============================================================
+// Validation helpers
+// ============================================================
+function showFieldError(inputId, errorId, msg){
+  const input = document.getElementById(inputId);
+  const err = document.getElementById(errorId);
+  if (input) input.classList.add('invalid');
+  if (err){ err.textContent = msg; err.classList.add('show'); }
+}
+function clearFieldError(inputId, errorId){
+  const input = document.getElementById(inputId);
+  const err = document.getElementById(errorId);
+  if (input) input.classList.remove('invalid');
+  if (err){ err.textContent = ''; err.classList.remove('show'); }
+}
+function isValidPhone(v){ return /^\d{10}$/.test(v); }
+function isValidEmail(v){ return !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+function digitsOnly(v){ return v.replace(/\D/g, ''); }
+
+// ============================================================
+// Registration draft (localStorage) — survives switching floors,
+// picking a different seat, or an accidental reload, until the
+// form is actually submitted.
+// ============================================================
+function saveRegDraft(){
+  const ids = ['f-name','f-phone','f-email','f-exam','f-join','f-months','f-seat','f-locker','f-locker-months','pay-amount','pay-amount-other'];
+  const draft = { regFloor, regStep, rulesAccepted: !!draft_rulesAccepted() };
+  ids.forEach(id=>{
+    const el = document.getElementById(id);
+    if (el) draft[id] = el.value;
+  });
+  try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(draft)); }catch(e){}
+}
+function draft_rulesAccepted(){
+  const el = document.getElementById('rules-accept');
+  if (el) return el.checked;
+  const existing = loadRegDraft();
+  return existing ? !!existing.rulesAccepted : false;
+}
+function loadRegDraft(){
+  try{
+    const raw = localStorage.getItem(REG_DRAFT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function clearRegDraft(){
+  try{ localStorage.removeItem(REG_DRAFT_KEY); }catch(e){}
+}
+function applyRegDraft(){
+  const draft = loadRegDraft();
+  if (!draft) return;
+  Object.keys(draft).forEach(id=>{
+    if (id === 'regFloor' || id === 'regStep' || id === 'rulesAccepted') return;
+    const el = document.getElementById(id);
+    if (el && draft[id]) el.value = draft[id];
+  });
+}
+
+// ============================================================
 // Image helpers (resize before upload)
 // ============================================================
+function goToRegStep(step){
+  regStep = step;
+  const existing = loadRegDraft() || {};
+  existing.regStep = step;
+  existing.regFloor = regFloor;
+  try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
+  render();
+}
+
 function readFileAsDataURL(file){
   return new Promise((resolve, reject)=>{
     const r = new FileReader();
@@ -377,15 +487,34 @@ function render(){
   document.querySelectorAll('.nav-item.auth-only').forEach(el=>{
     el.style.display = session ? 'flex' : 'none';
   });
+  document.querySelectorAll('.nav-item.founder-only').forEach(el=>{
+    if (el.style.display !== 'none') el.style.display = (session && session.role === 'founder') ? 'flex' : 'none';
+  });
   updateTopHeader();
   const main = document.getElementById('main');
   if (GATED_PAGES.includes(currentPage) && !session){
     main.innerHTML = renderLogin();
+  } else if (currentPage === 'reports' && (!session || session.role !== 'founder')){
+    currentPage = 'dashboard';
+    main.innerHTML = renderDashboard();
   } else if (currentPage === 'dashboard') main.innerHTML = renderDashboard();
   else if (currentPage === 'availability') main.innerHTML = renderAvailability();
   else if (currentPage === 'register') main.innerHTML = renderRegister();
   else if (currentPage === 'subscriptions') main.innerHTML = renderSubscriptions();
+  else if (currentPage === 'reports') main.innerHTML = renderReports();
+  else if (currentPage === 'pending') main.innerHTML = renderPending();
   attachHandlers();
+}
+
+async function loadReportsData(){
+  const range = reportRangeForPreset(reportsPreset);
+  try{
+    const data = await apiGet('/api/reports?from=' + range.from + '&to=' + range.to);
+    reportsData = data;
+  }catch(e){
+    reportsData = null;
+    showToast(e.message || 'Failed to load report');
+  }
 }
 
 function updateTopHeader(){
@@ -456,14 +585,30 @@ function renderDashboard(){
   const activeFloorId = isLockers ? currentLockerFloor : currentFloor;
   const floor = list.find(f=>f.id===activeFloorId) || list[0];
 
+  const q = dashSearch.trim().toLowerCase();
   let cells = '';
+  let visibleCount = 0;
   for(let i=1;i<=floor.count;i++){
     const occ = isLockers ? lockerOccupantOf(floor.id, i) : occupantOf(floor.id, i);
     const st = occ ? (isLockers ? lockerStatusOf(occ) : statusOf(occ)) : null;
     const cls = !occ ? 'free' : (st === 'expiring' ? 'warn' : 'occ');
+    const cellStatus = !occ ? 'free' : (st === 'expiring' ? 'expiring' : 'occupied');
+
+    let matchesFilter = dashStatusFilter === 'all' || dashStatusFilter === cellStatus;
+    let matchesSearch = true;
+    if (q){
+      const seatNumStr = String(i);
+      matchesSearch = seatNumStr === q || (occ && (occ.name.toLowerCase().includes(q) || occ.phone.includes(q)));
+    }
+    if (!matchesFilter || !matchesSearch) continue;
+    visibleCount++;
+
     const kindAttr = isLockers ? 'locker' : 'seat';
     cells += '<div class="seat '+cls+'" data-kind="'+kindAttr+'" data-floor="'+floor.id+'" data-num="'+i+'" title="'+ (occ ? occ.name : 'Free') +'">'+i+'</div>';
   }
+  if (!cells) cells = '<p class="empty" style="grid-column:1/-1;">No seats match this filter on this floor.</p>';
+
+  const filterLabel = { all:'', free:'Showing free only', occupied:'Showing occupied only', expiring:'Showing expiring only' }[dashStatusFilter];
 
   return `
     <div class="page-head">
@@ -475,10 +620,18 @@ function renderDashboard(){
       <div class="floor-tab ${isLockers?'active':''}" data-view="lockers">Lockers</div>
     </div>
     <div class="metrics">
-      <div class="metric-card"><div class="label">Total ${isLockers?'lockers':'seats'}</div><div class="value">${total}</div></div>
-      <div class="metric-card"><div class="label">Occupied</div><div class="value">${occupied}</div></div>
-      <div class="metric-card"><div class="label">Free</div><div class="value">${free}</div></div>
-      <div class="metric-card"><div class="label">Expiring in 2 days</div><div class="value">${expiringSoon}</div></div>
+      <div class="metric-card">
+        <div class="label">Total ${isLockers?'lockers':'seats'}</div><div class="value">${total}</div>
+      </div>
+      <div class="metric-card metric-occ clickable ${dashStatusFilter==='occupied'?'active-filter':''}" data-statusfilter="occupied">
+        <div class="label">Occupied</div><div class="value">${occupied}</div>
+      </div>
+      <div class="metric-card metric-free clickable ${dashStatusFilter==='free'?'active-filter':''}" data-statusfilter="free">
+        <div class="label">Free</div><div class="value">${free}</div>
+      </div>
+      <div class="metric-card metric-warn clickable ${dashStatusFilter==='expiring'?'active-filter':''}" data-statusfilter="expiring">
+        <div class="label">Expiring in 2 days</div><div class="value">${expiringSoon}</div>
+      </div>
     </div>
     <div class="card">
       <div class="floor-tabs">
@@ -489,6 +642,14 @@ function renderDashboard(){
         <span><span class="dot" style="background:var(--occ)"></span>Occupied</span>
         <span><span class="dot" style="background:var(--warn)"></span>Expiring within 2 days</span>
       </div>
+      <div class="filter-row">
+        <div class="filter-btn ${dashStatusFilter==='all'?'active':''}" data-dashfilter="all">All</div>
+        <div class="filter-btn ${dashStatusFilter==='free'?'active':''}" data-dashfilter="free">Free</div>
+        <div class="filter-btn ${dashStatusFilter==='occupied'?'active':''}" data-dashfilter="occupied">Occupied</div>
+        <div class="filter-btn ${dashStatusFilter==='expiring'?'active':''}" data-dashfilter="expiring">Expiring</div>
+        <div class="search-box"><input type="text" id="dash-search" placeholder="Search name, phone, or seat #" value="${dashSearch}"></div>
+      </div>
+      ${filterLabel ? `<p style="font-size:12px;color:var(--muted);margin:-8px 0 14px;">${filterLabel} (${visibleCount} shown) — <a href="#" id="dash-clear-filter" style="color:var(--ink-light);">clear filter</a></p>` : ''}
       <div class="seat-grid">${cells}</div>
     </div>
   `;
@@ -546,47 +707,69 @@ function renderAvailability(){
 // New registration (public)
 // ============================================================
 function renderRegister(){
+  if (regStep === 1) return renderRegisterRules();
+  if (regStep === 3) return renderRegisterPayment();
+  if (regStep === 4) return renderRegisterDone();
+  return renderRegisterDetails();
+}
+
+function stepProgress(step){
+  return `<p style="color:var(--muted);font-size:13px;margin-top:6px;">Step ${step} of 3</p>`;
+}
+
+function renderRegisterRules(){
+  const draft = loadRegDraft();
+  const accepted = draft ? !!draft.rulesAccepted : false;
+  return `
+    <div class="page-head">
+      <h2>Before you begin</h2>
+      ${stepProgress(1)}
+    </div>
+    <div class="card" style="max-width:560px;">
+      <h3 style="font-size:15px;margin-bottom:14px;">Rules & regulations</h3>
+      <ul style="padding-left:20px;line-height:1.9;font-size:14px;color:var(--ink-light);margin:0 0 18px;">
+        ${RULES_TEXT.map(r=>`<li>${r}</li>`).join('')}
+      </ul>
+      <label style="display:flex;align-items:flex-start;gap:10px;font-weight:400;margin-bottom:0;">
+        <input type="checkbox" id="rules-accept" style="width:auto;margin:3px 0 0;" ${accepted?'checked':''}>
+        <span>I have read and agree to the rules and regulations above.</span>
+      </label>
+      <button class="btn" id="rules-continue-btn" ${accepted?'':'disabled'} style="margin-top:20px;">Continue</button>
+    </div>
+  `;
+}
+
+function renderRegisterDetails(){
   const floor = FLOORS.find(f=>f.id===regFloor) || FLOORS[0];
-  let seatOptions = '';
   let freeCount = 0;
   for(let i=1;i<=floor.count;i++){
-    if (isSeatFree(floor.id, i)){
-      seatOptions += `<option value="${seatLabel(floor.id,i)}">Seat ${i}</option>`;
-      freeCount++;
-    }
-  }
-  const lockerFloorId = SEAT_TO_LOCKER_FLOOR[regFloor];
-  const lockerFloor = LOCKERS.find(f=>f.id===lockerFloorId);
-  let lockerOptions = '<option value="">No locker</option>';
-  if (lockerFloor){
-    for(let i=1;i<=lockerFloor.count;i++){
-      if (isLockerFree(lockerFloor.id, i)){
-        lockerOptions += `<option value="${lockerLabel(lockerFloor.id,i)}">Locker ${i}</option>`;
-      }
-    }
+    if (isSeatFree(floor.id, i)) freeCount++;
   }
 
   return `
     <div class="page-head">
-      <h2>New registration</h2>
-      <p>Add a new student and assign a seat.</p>
+      <h2>Your details</h2>
+      ${stepProgress(2)}
     </div>
     <div class="card">
-      <form id="reg-form">
+      <form id="reg-form" novalidate>
         <div class="grid-2">
           <div>
             <label>Full name</label>
             <input type="text" id="f-name" required placeholder="Student's full name">
+            <small class="field-error" id="err-name"></small>
           </div>
           <div>
             <label>Phone number</label>
-            <input type="tel" id="f-phone" required placeholder="10-digit mobile number">
+            <input type="tel" id="f-phone" required placeholder="10-digit mobile number" inputmode="numeric" maxlength="10">
+            <small class="field-error" id="err-phone"></small>
           </div>
         </div>
         <div class="grid-2">
           <div>
-            <label>Email ID</label>
+            <label>Email ID (optional — bill is sent here on approval)</label>
             <input type="email" id="f-email" placeholder="name@example.com">
+            <small class="field-error" id="err-email"></small>
           </div>
           <div>
             <label>Upload ID proof (photo or scan)</label>
@@ -598,10 +781,12 @@ function renderRegister(){
           <div>
             <label>Exam preparing for</label>
             <input type="text" id="f-exam" required placeholder="e.g. KPSC, UPSC, KAS">
+            <small class="field-error" id="err-exam"></small>
           </div>
           <div>
             <label>Date of joining</label>
             <input type="date" id="f-join" required value="${todayISO()}">
+            <small class="field-error" id="err-join"></small>
           </div>
         </div>
         <div class="grid-2">
@@ -616,15 +801,8 @@ function renderRegister(){
         <div class="floor-tabs" id="reg-floor-tabs">
           ${FLOORS.map(f=>`<div class="floor-tab ${f.id===regFloor?'active':''}" data-regfloor="${f.id}">${f.label} · ${f.sub}</div>`).join('')}
         </div>
-        <div class="grid-2">
-          <div>
-            <label>Available seats on ${floor.label} (${freeCount} free of ${floor.count})</label>
-            <select id="f-seat">${seatOptions || '<option value="">No free seats on this floor</option>'}</select>
-          </div>
-          <div>
-            <label>Locker on ${floor.label} (optional — ₹${LOCKER_MONTHLY}/month + ₹${LOCKER_DEPOSIT} refundable deposit)</label>
-            <select id="f-locker">${lockerOptions}</select>
-          </div>
+        <div class="grid-2" id="reg-seat-locker-row">
+          ${renderRegisterSeatLockerInner(floor, freeCount)}
         </div>
         <div id="f-locker-months-wrap" style="display:none;">
           <label>Locker subscription (months)</label>
@@ -632,18 +810,86 @@ function renderRegister(){
             ${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}">${m} month${m>1?'s':''}</option>`).join('')}
           </select>
         </div>
-        <div class="grid-2">
-          <div>
-            <label>Amount paid</label>
-            <select id="f-amount">${paymentAmountOptionsHTML()}</select>
-          </div>
-          <div id="f-amount-other-wrap" style="display:none;">
-            <label>Enter amount (₹)</label>
-            <input type="number" id="f-amount-other" min="0" placeholder="e.g. 1500">
-          </div>
+        <div class="modal-actions" style="margin-top:6px;">
+          <button type="button" class="btn btn-outline" id="reg-back-btn">Back</button>
+          <button type="submit" class="btn" id="reg-details-continue">Continue to payment</button>
         </div>
-        <button type="submit" class="btn" id="reg-submit-btn">Register student</button>
       </form>
+    </div>
+  `;
+}
+
+function renderRegisterSeatLockerInner(floor, freeCount){
+  const lockerFloorId = SEAT_TO_LOCKER_FLOOR[floor.id];
+  const lockerFloor = LOCKERS.find(f=>f.id===lockerFloorId);
+  let seatOptions = '';
+  for(let i=1;i<=floor.count;i++){
+    if (isSeatFree(floor.id, i)) seatOptions += `<option value="${seatLabel(floor.id,i)}">Seat ${i}</option>`;
+  }
+  let lockerOptions = '<option value="">No locker</option>';
+  if (lockerFloor){
+    for(let i=1;i<=lockerFloor.count;i++){
+      if (isLockerFree(lockerFloor.id, i)) lockerOptions += `<option value="${lockerLabel(lockerFloor.id,i)}">Locker ${i}</option>`;
+    }
+  }
+  return `
+    <div>
+      <label id="reg-seat-label">Available seats on ${floor.label} (${freeCount} free of ${floor.count})</label>
+      <select id="f-seat">${seatOptions || '<option value="">No free seats on this floor</option>'}</select>
+    </div>
+    <div>
+      <label>Locker on ${floor.label} (optional — ₹${LOCKER_MONTHLY}/month + ₹${LOCKER_DEPOSIT} refundable deposit)</label>
+      <select id="f-locker">${lockerOptions}</select>
+    </div>
+  `;
+}
+
+function buildUpiQrUrl(amount, note){
+  const upiUri = 'upi://pay?pa=' + encodeURIComponent(UPI_ID) + '&pn=' + encodeURIComponent(UPI_PAYEE_NAME) +
+    '&am=' + encodeURIComponent(amount) + '&cu=INR&tn=' + encodeURIComponent(note);
+  return 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=' + encodeURIComponent(upiUri);
+}
+
+function renderRegisterPayment(){
+  const draft = loadRegDraft() || {};
+  const seatId = draft['f-seat'] || '';
+  const initialAmount = draft['pay-amount'] || PAYMENT_PRESETS[0];
+  return `
+    <div class="page-head">
+      <h2>Payment</h2>
+      ${stepProgress(3)}
+    </div>
+    <div class="card" style="max-width:420px;">
+      <label>Amount to pay</label>
+      <select id="pay-amount">${paymentAmountOptionsHTML(draft['pay-amount'])}</select>
+      <div id="pay-amount-other-wrap" style="display:none;">
+        <label>Enter amount (₹)</label>
+        <input type="number" id="pay-amount-other" min="1" value="${draft['pay-amount-other']||''}">
+      </div>
+      <div style="text-align:center;margin:16px 0;">
+        <img id="upi-qr-img" src="${buildUpiQrUrl(initialAmount === 'other' ? (draft['pay-amount-other']||1) : initialAmount, 'Seat ' + seatId)}" style="width:220px;height:220px;border:1px solid var(--line);border-radius:8px;">
+        <p style="font-size:12px;color:var(--muted);margin-top:8px;">Scan with any UPI app and pay the amount above, then upload your screenshot below.</p>
+      </div>
+      <label>Upload payment screenshot</label>
+      <input type="file" id="pay-screenshot" accept="image/*">
+      <div id="pay-screenshot-preview" style="display:none;margin-top:-8px;margin-bottom:16px;"></div>
+      <small class="field-error" id="err-screenshot"></small>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" id="pay-back-btn">Back</button>
+        <button class="btn" id="pay-submit-btn">Submit registration</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderRegisterDone(){
+  const draft = loadRegDraft() || {};
+  return `
+    <div class="page-head"><h2>Request submitted</h2></div>
+    <div class="card" style="max-width:420px;text-align:center;">
+      <p style="font-size:15px;">Thanks${draft['f-name'] ? ', ' + draft['f-name'] : ''}! Your registration request has been submitted and is pending staff approval.</p>
+      <p style="color:var(--muted);font-size:13px;margin-top:10px;">You'll receive a confirmation once it's approved.</p>
+      <button class="btn" id="done-back-btn" style="margin-top:18px;">Back to availability</button>
     </div>
   `;
 }
@@ -652,7 +898,11 @@ function renderRegister(){
 // Subscriptions (staff only)
 // ============================================================
 function renderSubscriptions(){
-  let list = students.slice().sort((a,b)=> new Date(a.expiryDate) - new Date(b.expiryDate));
+  let list = students.slice();
+  if (subSort === 'name') list.sort((a,b)=> a.name.localeCompare(b.name));
+  else if (subSort === 'paid') list.sort((a,b)=> totalPaid(b) - totalPaid(a));
+  else list.sort((a,b)=> new Date(a.expiryDate) - new Date(b.expiryDate));
+
   if (subFilter !== 'all') list = list.filter(s => statusOf(s) === subFilter);
   if (subSearch.trim()){
     const q = subSearch.trim().toLowerCase();
@@ -696,6 +946,11 @@ function renderSubscriptions(){
         <div class="filter-btn ${subFilter==='active'?'active':''}" data-filter="active">Active</div>
         <div class="filter-btn ${subFilter==='expiring'?'active':''}" data-filter="expiring">Expiring soon</div>
         <div class="filter-btn ${subFilter==='expired'?'active':''}" data-filter="expired">Expired</div>
+        <select id="sub-sort" style="width:auto;margin:0 0 0 4px;">
+          <option value="expiry" ${subSort==='expiry'?'selected':''}>Sort: expiry date</option>
+          <option value="name" ${subSort==='name'?'selected':''}>Sort: name</option>
+          <option value="paid" ${subSort==='paid'?'selected':''}>Sort: amount paid</option>
+        </select>
         <div class="search-box"><input type="text" id="sub-search" placeholder="Search name, phone, seat" value="${subSearch}"></div>
       </div>
       <table>
@@ -704,6 +959,244 @@ function renderSubscriptions(){
       </table>
     </div>
   `;
+}
+
+// ============================================================
+// Reports (founder only)
+// ============================================================
+function reportRangeForPreset(preset){
+  const now = new Date();
+  if (preset === 'today'){
+    const d = todayISO();
+    return { from: d, to: d };
+  }
+  if (preset === 'month'){
+    const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+    return { from, to: todayISO() };
+  }
+  return { from: reportsFrom || todayISO(), to: reportsTo || todayISO() };
+}
+
+function bar(label, value, max){
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+  return `
+    <div class="bar-row">
+      <div class="bar-label">${label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
+      <div class="bar-value">${value}</div>
+    </div>`;
+}
+
+function renderReports(){
+  const range = reportRangeForPreset(reportsPreset);
+  const r = reportsData;
+
+  const presetTabs = `
+    <div class="floor-tabs">
+      <div class="floor-tab ${reportsPreset==='today'?'active':''}" data-reportpreset="today">Today</div>
+      <div class="floor-tab ${reportsPreset==='month'?'active':''}" data-reportpreset="month">This month</div>
+      <div class="floor-tab ${reportsPreset==='custom'?'active':''}" data-reportpreset="custom">Custom range</div>
+    </div>
+    ${reportsPreset==='custom' ? `
+      <div class="grid-2">
+        <div><label>From</label><input type="date" id="report-from" value="${range.from}"></div>
+        <div><label>To</label><input type="date" id="report-to" value="${range.to}"></div>
+      </div>
+      <button class="btn btn-outline" id="report-apply" style="margin-bottom:20px;">Apply range</button>
+    ` : ''}
+  `;
+
+  if (!r){
+    return `
+      <div class="page-head"><h2>Reports</h2><p>Revenue and activity for a day, month, or custom range.</p></div>
+      ${presetTabs}
+      <p class="empty">Loading report…</p>
+    `;
+  }
+
+  const maxFloor = Math.max(1, ...Object.values(r.registrations.byFloor));
+  const floorLabels = { F1:'First floor', F2:'Second floor' };
+  const maxExam = Math.max(1, ...r.topExams.map(e=>e.count));
+
+  return `
+    <div class="page-head">
+      <h2>Reports</h2>
+      <p>${range.from} to ${range.to}</p>
+    </div>
+    ${presetTabs}
+
+    <h3 style="font-size:15px;margin:8px 0 14px;">Revenue</h3>
+    <div class="metrics">
+      <div class="metric-card"><div class="label">Total collected</div><div class="value">₹${r.revenue.total}</div></div>
+      <div class="metric-card"><div class="label">Registrations</div><div class="value">₹${r.revenue.registration}</div></div>
+      <div class="metric-card"><div class="label">Renewals</div><div class="value">₹${r.revenue.renewal}</div></div>
+      <div class="metric-card"><div class="label">Lockers</div><div class="value">₹${r.revenue.locker}</div></div>
+    </div>
+    <div class="metrics">
+      <div class="metric-card"><div class="label">Payments logged</div><div class="value">${r.revenue.paymentCount}</div></div>
+      <div class="metric-card"><div class="label">Avg payment</div><div class="value">₹${r.revenue.avgPayment}</div></div>
+      <div class="metric-card"><div class="label">New registrations</div><div class="value">${r.registrations.count}</div></div>
+      <div class="metric-card"><div class="label">Avg subscription</div><div class="value">${r.registrations.avgDurationMonths}mo</div></div>
+    </div>
+
+    <h3 style="font-size:15px;margin:20px 0 14px;">Current snapshot</h3>
+    <div class="metrics">
+      <div class="metric-card"><div class="label">Active students</div><div class="value">${r.snapshot.totalActiveStudents}</div></div>
+      <div class="metric-card"><div class="label">Seat occupancy</div><div class="value">${r.snapshot.seatOccupancyPct}%</div></div>
+      <div class="metric-card"><div class="label">Locker occupancy</div><div class="value">${r.snapshot.lockerOccupancyPct}%</div></div>
+      <div class="metric-card"><div class="label">Expiring in 2 days</div><div class="value">${r.snapshot.expiringSoon}</div></div>
+    </div>
+
+    <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+      <div class="card">
+        <h3 style="font-size:15px;margin-bottom:16px;">New registrations by floor</h3>
+        ${Object.keys(r.registrations.byFloor).length
+          ? Object.entries(r.registrations.byFloor).map(([f,c])=>bar(floorLabels[f]||f, c, maxFloor)).join('')
+          : '<p class="empty">No registrations in this range.</p>'}
+        <p style="font-size:12px;color:var(--muted);margin-top:10px;">Locker attach rate: ${r.registrations.lockerAttachRate}% of new registrations also took a locker.</p>
+      </div>
+      <div class="card">
+        <h3 style="font-size:15px;margin-bottom:16px;">Top exams (new registrations)</h3>
+        ${r.topExams.length
+          ? r.topExams.map(e=>bar(e.exam, e.count, maxExam)).join('')
+          : '<p class="empty">No registrations in this range.</p>'}
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// Pending approvals (staff only)
+// ============================================================
+async function loadPendingList(){
+  try{
+    const data = await apiGet('/api/pending-registrations');
+    pendingList = data.pending || [];
+  }catch(e){
+    pendingList = [];
+    showToast(e.message || 'Failed to load pending requests');
+  }
+}
+
+function renderPending(){
+  if (!pendingList.length){
+    return `
+      <div class="page-head"><h2>Pending approvals</h2><p>New registration requests waiting for review.</p></div>
+      <p class="empty">No pending requests right now.</p>
+    `;
+  }
+  const cards = pendingList.map(p=>`
+    <div class="card" id="pending-card-${p.id}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+        <div>
+          <h3 style="font-size:16px;">${p.name}</h3>
+          <p style="color:var(--muted);font-size:13px;margin-top:2px;">${p.phone}${p.email?' · '+p.email:''}</p>
+        </div>
+        <span class="badge expiring">pending</span>
+      </div>
+      <div style="margin-top:14px;">
+        <div class="row"><span>Seat requested</span><span>${p.seatId}</span></div>
+        ${p.lockerId ? `<div class="row"><span>Locker requested</span><span>${p.lockerId}</span></div>` : ''}
+        <div class="row"><span>Exam</span><span>${p.examPrep}</span></div>
+        <div class="row"><span>Joining</span><span>${p.joinDate}</span></div>
+        <div class="row"><span>Subscription</span><span>${p.durationMonths} month(s)${p.lockerId ? ' · locker ' + p.lockerMonths + ' month(s)' : ''}</span></div>
+        <div class="row"><span>Amount claimed</span><span>₹${p.amount}</span></div>
+      </div>
+      <div class="modal-actions" style="margin-top:16px;">
+        ${p.hasIdPhoto ? `<button class="btn btn-outline btn-sm" data-fetchphoto="${p.id}">Fetch ID photo</button>` : ''}
+        <button class="btn btn-outline btn-sm" data-fetchpayment="${p.id}">Fetch payment screenshot</button>
+        <button class="btn btn-outline btn-sm" data-editpending="${p.id}">Edit</button>
+        <button class="btn btn-sm" style="background:var(--free);border-color:var(--free);" data-approve="${p.id}">Approve</button>
+        <button class="btn btn-outline btn-sm" data-reject="${p.id}">Reject</button>
+      </div>
+      <div id="photo-preview-${p.id}" style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;"></div>
+    </div>
+  `).join('');
+  return `
+    <div class="page-head"><h2>Pending approvals</h2><p>${pendingList.length} request${pendingList.length===1?'':'s'} waiting for review.</p></div>
+    ${cards}
+  `;
+}
+
+function showEditPendingModal(pendingId){
+  const p = pendingList.find(x=>x.id===pendingId);
+  if (!p) return;
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Edit request</h3>
+        <label>Full name</label>
+        <input type="text" id="ep-name" value="${p.name}">
+        <label>Phone</label>
+        <input type="tel" id="ep-phone" value="${p.phone}" maxlength="10">
+        <label>Email</label>
+        <input type="email" id="ep-email" value="${p.email||''}">
+        <label>Exam</label>
+        <input type="text" id="ep-exam" value="${p.examPrep}">
+        <label>Date of joining</label>
+        <input type="date" id="ep-join" value="${p.joinDate}">
+        <label>Subscription (months)</label>
+        <select id="ep-months">${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}" ${m==p.durationMonths?'selected':''}>${m} month${m>1?'s':''}</option>`).join('')}</select>
+        ${p.lockerId ? `<label>Locker subscription (months)</label>
+        <select id="ep-locker-months">${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}" ${m==p.lockerMonths?'selected':''}>${m} month${m>1?'s':''}</option>`).join('')}</select>` : ''}
+        <label>Amount</label>
+        <input type="number" id="ep-amount" value="${p.amount}" min="1">
+        <div class="modal-actions">
+          <button class="btn" id="ep-save">Save changes</button>
+          <button class="btn btn-outline" id="close-modal">Close</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+  document.getElementById('ep-save').onclick = async ()=>{
+    const phoneVal = digitsOnly(document.getElementById('ep-phone').value);
+    if (!isValidPhone(phoneVal)){ showToast('Phone number must be exactly 10 digits'); return; }
+    const fields = {
+      name: document.getElementById('ep-name').value.trim(),
+      phone: phoneVal,
+      email: document.getElementById('ep-email').value.trim() || null,
+      examPrep: document.getElementById('ep-exam').value.trim(),
+      joinDate: document.getElementById('ep-join').value,
+      durationMonths: Number(document.getElementById('ep-months').value),
+      amount: Number(document.getElementById('ep-amount').value)
+    };
+    const lockerMonthsEl = document.getElementById('ep-locker-months');
+    if (lockerMonthsEl) fields.lockerMonths = Number(lockerMonthsEl.value);
+    try{
+      await apiPost('/api/pending-edit', { pendingId, fields });
+      await loadPendingList();
+      closeModal(); render(); showToast('Request updated');
+    }catch(err){ showToast(err.message || 'Failed to save changes'); }
+  };
+}
+
+function showRejectModal(pendingId){
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Reject request</h3>
+        <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">The seat/locker will become available again immediately.</p>
+        <label>Reason (optional, shown in records)</label>
+        <input type="text" id="reject-reason" placeholder="e.g. Payment screenshot unclear">
+        <div class="modal-actions">
+          <button class="btn" id="reject-confirm" style="background:var(--occ);border-color:var(--occ);">Reject request</button>
+          <button class="btn btn-outline" id="close-modal">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+  document.getElementById('reject-confirm').onclick = async ()=>{
+    const reason = document.getElementById('reject-reason').value.trim();
+    try{
+      await apiPost('/api/pending-reject', { pendingId, reason });
+      await loadPendingList(); await loadPublicAvailability();
+      closeModal(); render(); showToast('Request rejected — seat is free again');
+    }catch(err){ showToast(err.message || 'Failed to reject request'); }
+  };
 }
 
 // ============================================================
@@ -727,8 +1220,12 @@ function showPublicResourceModal(kind, floorId, num){
     </div>`;
   const goBtn = document.getElementById('go-register');
   if (goBtn) goBtn.onclick = ()=>{
-    currentPage = 'register'; regFloor = floorId; closeModal(); render();
-    setTimeout(()=>{ const sel=document.getElementById('f-seat'); if (sel) sel.value = label; }, 0);
+    currentPage = 'register'; regFloor = floorId; regStep = 1;
+    const existing = loadRegDraft() || {};
+    existing['f-seat'] = label;
+    existing.regFloor = floorId;
+    try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
+    closeModal(); render();
   };
   document.getElementById('close-modal').onclick = closeModal;
   document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
@@ -751,10 +1248,14 @@ function showStaffSeatModal(kind, floorId, num){
         </div>
       </div>`;
     document.getElementById('go-register').onclick = async ()=>{
-      currentPage='register'; regFloor=floorId; closeModal();
+      currentPage='register'; regFloor=floorId; regStep = 1;
+      const existing = loadRegDraft() || {};
+      existing['f-seat'] = seatLabel(floorId,num);
+      existing.regFloor = floorId;
+      try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
+      closeModal();
       await loadPublicAvailability();
       render();
-      setTimeout(()=>{ const sel=document.getElementById('f-seat'); if(sel) sel.value = seatLabel(floorId,num); },0);
     };
   } else {
     const st = statusOf(occ);
@@ -1016,6 +1517,14 @@ function attachHandlers(){
       currentPage = el.dataset.page;
       if (currentPage === 'availability' || currentPage === 'register') await loadPublicAvailability();
       if (GATED_PAGES.includes(currentPage) && session) await loadFullStudents();
+      if (currentPage === 'reports' && session && session.role === 'founder'){
+        render();
+        await loadReportsData();
+      }
+      if (currentPage === 'pending' && session){
+        render();
+        await loadPendingList();
+      }
       render();
     };
   });
@@ -1027,7 +1536,7 @@ function attachHandlers(){
 
   if (currentPage === 'dashboard'){
     document.querySelectorAll('.floor-tab[data-view]').forEach(el=>{
-      el.onclick = ()=>{ dashView = el.dataset.view; render(); };
+      el.onclick = ()=>{ dashView = el.dataset.view; dashStatusFilter = 'all'; dashSearch = ''; render(); };
     });
     document.querySelectorAll('.floor-tab[data-floor]').forEach(el=>{
       el.onclick = ()=>{
@@ -1036,6 +1545,24 @@ function attachHandlers(){
         render();
       };
     });
+    document.querySelectorAll('.metric-card[data-statusfilter]').forEach(el=>{
+      el.onclick = ()=>{
+        const f = el.dataset.statusfilter;
+        dashStatusFilter = (dashStatusFilter === f) ? 'all' : f;
+        render();
+      };
+    });
+    document.querySelectorAll('.filter-btn[data-dashfilter]').forEach(el=>{
+      el.onclick = ()=>{ dashStatusFilter = el.dataset.dashfilter; render(); };
+    });
+    const clearLink = document.getElementById('dash-clear-filter');
+    if (clearLink) clearLink.onclick = (e)=>{ e.preventDefault(); dashStatusFilter = 'all'; render(); };
+    const dashSearchInput = document.getElementById('dash-search');
+    if (dashSearchInput){
+      dashSearchInput.oninput = ()=>{ dashSearch = dashSearchInput.value; render(); };
+      dashSearchInput.focus();
+      dashSearchInput.setSelectionRange(dashSearchInput.value.length, dashSearchInput.value.length);
+    }
     document.querySelectorAll('.seat').forEach(el=>{
       el.onclick = ()=> showStaffSeatModal(el.dataset.kind, el.dataset.floor, Number(el.dataset.num));
     });
@@ -1053,21 +1580,67 @@ function attachHandlers(){
     });
   }
 
-  if (currentPage === 'register'){
+  if (currentPage === 'register' && regStep === 1){
+    const cb = document.getElementById('rules-accept');
+    const continueBtn = document.getElementById('rules-continue-btn');
+    cb.onchange = ()=>{
+      continueBtn.disabled = !cb.checked;
+      const existing = loadRegDraft() || {};
+      existing.rulesAccepted = cb.checked;
+      existing.regFloor = regFloor;
+      existing.regStep = 1;
+      try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
+    };
+    continueBtn.onclick = ()=>{ goToRegStep(2); };
+  }
+
+  if (currentPage === 'register' && regStep === 2){
     const form = document.getElementById('reg-form');
-    const amountSel = document.getElementById('f-amount');
-    const otherWrap = document.getElementById('f-amount-other-wrap');
-    otherWrap.style.display = amountSel.value === 'other' ? 'block' : 'none';
-    amountSel.onchange = ()=>{ otherWrap.style.display = amountSel.value === 'other' ? 'block' : 'none'; };
+
+    // Restore whatever was typed before (survives switching floors, an
+    // accidental reload, or navigating away without submitting).
+    applyRegDraft();
+
+    document.getElementById('reg-back-btn').onclick = ()=>{ saveRegDraft(); goToRegStep(1); };
 
     document.querySelectorAll('#reg-floor-tabs .floor-tab').forEach(el=>{
-      el.onclick = ()=>{ regFloor = el.dataset.regfloor; render(); };
+      el.onclick = ()=>{
+        saveRegDraft();
+        regFloor = el.dataset.regfloor;
+        document.querySelectorAll('#reg-floor-tabs .floor-tab').forEach(t=>t.classList.remove('active'));
+        el.classList.add('active');
+        let freeCount = 0;
+        const floor = FLOORS.find(f=>f.id===regFloor) || FLOORS[0];
+        for(let i=1;i<=floor.count;i++){ if (isSeatFree(floor.id,i)) freeCount++; }
+        document.getElementById('reg-seat-locker-row').innerHTML = renderRegisterSeatLockerInner(floor, freeCount);
+        // locker floor changed, so any previous locker selection is no longer valid
+        document.getElementById('f-locker-months-wrap').style.display = 'none';
+        wireLockerSelect();
+        const seatSel = document.getElementById('f-seat');
+        if (seatSel) seatSel.onchange = saveRegDraft;
+      };
     });
 
-    const lockerSel = document.getElementById('f-locker');
-    const lockerMonthsWrap = document.getElementById('f-locker-months-wrap');
-    lockerMonthsWrap.style.display = lockerSel.value ? 'block' : 'none';
-    lockerSel.onchange = ()=>{ lockerMonthsWrap.style.display = lockerSel.value ? 'block' : 'none'; };
+    function wireLockerSelect(){
+      const lockerSel = document.getElementById('f-locker');
+      const lockerMonthsWrap = document.getElementById('f-locker-months-wrap');
+      lockerMonthsWrap.style.display = lockerSel.value ? 'block' : 'none';
+      lockerSel.onchange = ()=>{ lockerMonthsWrap.style.display = lockerSel.value ? 'block' : 'none'; saveRegDraft(); };
+    }
+    wireLockerSelect();
+    document.getElementById('f-seat').onchange = saveRegDraft;
+
+    // Live phone validation: digits only, capped at 10.
+    const phoneInput = document.getElementById('f-phone');
+    phoneInput.oninput = ()=>{
+      phoneInput.value = digitsOnly(phoneInput.value).slice(0,10);
+      clearFieldError('f-phone','err-phone');
+      saveRegDraft();
+    };
+    ['f-name','f-email','f-exam','f-join','f-months','f-locker-months'].forEach(id=>{
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', saveRegDraft);
+    });
 
     const fileInput = document.getElementById('f-id-file');
     const preview = document.getElementById('f-id-preview');
@@ -1077,55 +1650,127 @@ function attachHandlers(){
       const raw = await readFileAsDataURL(file);
       const resized = await resizeImageDataURL(raw, 900, 0.72);
       fileInput.dataset.resized = resized;
+      const existing = loadRegDraft() || {};
+      existing.idPhotoBase64 = resized;
+      try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
       preview.style.display = 'block';
       preview.innerHTML = `<img src="${resized}" style="max-width:140px;max-height:100px;border-radius:6px;border:1px solid var(--line);">`;
     };
 
-    form.onsubmit = async (e)=>{
+    form.onsubmit = (e)=>{
       e.preventDefault();
-      const seatId = document.getElementById('f-seat').value;
-      if (!seatId){ showToast('No seat selected'); return; }
-      const submitBtn = document.getElementById('reg-submit-btn');
-      submitBtn.disabled = true; submitBtn.textContent = 'Registering…';
 
-      const joinDate = document.getElementById('f-join').value;
-      const months = document.getElementById('f-months').value;
-      const lockerId = document.getElementById('f-locker').value;
-      const lockerMonths = document.getElementById('f-locker-months').value;
-      const amountRaw = amountSel.value === 'other' ? document.getElementById('f-amount-other').value : amountSel.value;
+      let valid = true;
+      const nameVal = document.getElementById('f-name').value.trim();
+      const phoneVal = document.getElementById('f-phone').value.trim();
+      const emailVal = document.getElementById('f-email').value.trim();
+      const examVal = document.getElementById('f-exam').value.trim();
+      const joinVal = document.getElementById('f-join').value;
+      const seatId = document.getElementById('f-seat').value;
+
+      clearFieldError('f-name','err-name');
+      clearFieldError('f-phone','err-phone');
+      clearFieldError('f-email','err-email');
+      clearFieldError('f-exam','err-exam');
+      clearFieldError('f-join','err-join');
+
+      if (!nameVal || nameVal.length < 2){ showFieldError('f-name','err-name',"Enter the student's full name."); valid = false; }
+      if (!isValidPhone(phoneVal)){ showFieldError('f-phone','err-phone','Phone number must be exactly 10 digits.'); valid = false; }
+      if (!isValidEmail(emailVal)){ showFieldError('f-email','err-email','Enter a valid email address, or leave it blank.'); valid = false; }
+      if (!examVal){ showFieldError('f-exam','err-exam','Enter the exam this student is preparing for.'); valid = false; }
+      if (!joinVal){ showFieldError('f-join','err-join','Pick a date of joining.'); valid = false; }
+      if (!seatId){ showToast('No seat selected'); valid = false; }
+      if (!valid) return;
+
+      saveRegDraft();
+      goToRegStep(3);
+    };
+  }
+
+  if (currentPage === 'register' && regStep === 3){
+    const draft = loadRegDraft() || {};
+    const seatId = draft['f-seat'] || '';
+    const amountSel = document.getElementById('pay-amount');
+    const otherWrap = document.getElementById('pay-amount-other-wrap');
+    otherWrap.style.display = amountSel.value === 'other' ? 'block' : 'none';
+
+    const refreshQr = ()=>{
+      const amt = amountSel.value === 'other' ? (document.getElementById('pay-amount-other').value || 1) : amountSel.value;
+      document.getElementById('upi-qr-img').src = buildUpiQrUrl(amt, 'Seat ' + seatId);
+    };
+    amountSel.onchange = ()=>{ otherWrap.style.display = amountSel.value === 'other' ? 'block' : 'none'; saveRegDraft(); refreshQr(); };
+    const otherInput = document.getElementById('pay-amount-other');
+    if (otherInput) otherInput.oninput = ()=>{ saveRegDraft(); refreshQr(); };
+
+    document.getElementById('pay-back-btn').onclick = ()=>{ saveRegDraft(); goToRegStep(2); };
+
+    const shotInput = document.getElementById('pay-screenshot');
+    const shotPreview = document.getElementById('pay-screenshot-preview');
+    shotInput.onchange = async ()=>{
+      const file = shotInput.files[0];
+      if (!file){ shotPreview.style.display = 'none'; shotPreview.innerHTML=''; return; }
+      const raw = await readFileAsDataURL(file);
+      const resized = await resizeImageDataURL(raw, 900, 0.72);
+      shotInput.dataset.resized = resized;
+      shotPreview.style.display = 'block';
+      shotPreview.innerHTML = `<img src="${resized}" style="max-width:140px;max-height:100px;border-radius:6px;border:1px solid var(--line);">`;
+      clearFieldError('pay-screenshot','err-screenshot');
+    };
+
+    document.getElementById('pay-submit-btn').onclick = async ()=>{
+      clearFieldError('pay-screenshot','err-screenshot');
+      const screenshotData = shotInput.dataset.resized;
+      if (!screenshotData){ showFieldError('pay-screenshot','err-screenshot','Upload a screenshot of your payment before submitting.'); return; }
+
+      const submitBtn = document.getElementById('pay-submit-btn');
+      submitBtn.disabled = true; submitBtn.textContent = 'Submitting…';
+
+      const finalDraft = loadRegDraft() || {};
+      const amountRaw = amountSel.value === 'other' ? document.getElementById('pay-amount-other').value : amountSel.value;
       const amount = Number(amountRaw || 0);
+      if (amount <= 0){
+        showFieldError('pay-screenshot','err-screenshot','Enter a valid amount.');
+        submitBtn.disabled = false; submitBtn.textContent = 'Submit registration';
+        return;
+      }
 
       const payload = {
-        name: document.getElementById('f-name').value.trim(),
-        phone: document.getElementById('f-phone').value.trim(),
-        email: document.getElementById('f-email').value.trim() || null,
-        examPrep: document.getElementById('f-exam').value.trim(),
-        joinDate,
-        durationMonths: Number(months),
-        seatId,
-        amount
+        name: finalDraft['f-name'],
+        phone: finalDraft['f-phone'],
+        email: finalDraft['f-email'] || null,
+        examPrep: finalDraft['f-exam'],
+        joinDate: finalDraft['f-join'],
+        durationMonths: Number(finalDraft['f-months']),
+        seatId: finalDraft['f-seat'],
+        amount,
+        rulesAcceptedAt: new Date().toISOString(),
+        paymentScreenshotBase64: screenshotData
       };
-      if (lockerId){
-        payload.lockerId = lockerId;
-        payload.lockerMonths = Number(lockerMonths);
+      if (finalDraft['f-locker']){
+        payload.lockerId = finalDraft['f-locker'];
+        payload.lockerMonths = Number(finalDraft['f-locker-months']);
       }
-      const resizedPhoto = fileInput.dataset.resized;
-      if (resizedPhoto) payload.photoBase64 = resizedPhoto;
+      if (finalDraft.idPhotoBase64) payload.photoBase64 = finalDraft.idPhotoBase64;
 
       try{
         await apiPost('/api/register', payload);
+        clearRegDraft();
         await loadPublicAvailability();
-        if (session) await loadFullStudents();
-        showToast('Registered ' + payload.name + ' — seat ' + seatId + (lockerId ? ', locker ' + lockerId : ''));
-        currentPage = session ? 'dashboard' : 'availability';
-        currentFloor = seatId.slice(0,2);
+        regStep = 4;
         render();
       }catch(err){
         showToast(err.message || 'Registration failed. Please try again.');
-        submitBtn.disabled = false; submitBtn.textContent = 'Register student';
+        submitBtn.disabled = false; submitBtn.textContent = 'Submit registration';
         await loadPublicAvailability();
-        render();
       }
+    };
+  }
+
+  if (currentPage === 'register' && regStep === 4){
+    document.getElementById('done-back-btn').onclick = ()=>{
+      regStep = 1;
+      currentPage = 'availability';
+      render();
     };
   }
 
@@ -1133,6 +1778,8 @@ function attachHandlers(){
     document.querySelectorAll('.filter-btn').forEach(el=>{
       el.onclick = ()=>{ subFilter = el.dataset.filter; render(); };
     });
+    const sortSel = document.getElementById('sub-sort');
+    if (sortSel) sortSel.onchange = ()=>{ subSort = sortSel.value; render(); };
     const search = document.getElementById('sub-search');
     search.oninput = ()=>{ subSearch = search.value; render(); };
     search.focus();
@@ -1149,6 +1796,66 @@ function attachHandlers(){
       el.onclick = ()=> showPaymentModal(el.dataset.payment);
     });
   }
+
+  if (currentPage === 'reports'){
+    document.querySelectorAll('.floor-tab[data-reportpreset]').forEach(el=>{
+      el.onclick = async ()=>{
+        reportsPreset = el.dataset.reportpreset;
+        reportsData = null;
+        render();
+        if (reportsPreset !== 'custom') await loadReportsData();
+        render();
+      };
+    });
+    const applyBtn = document.getElementById('report-apply');
+    if (applyBtn) applyBtn.onclick = async ()=>{
+      reportsFrom = document.getElementById('report-from').value;
+      reportsTo = document.getElementById('report-to').value;
+      reportsData = null;
+      render();
+      await loadReportsData();
+      render();
+    };
+  }
+
+  if (currentPage === 'pending'){
+    document.querySelectorAll('[data-fetchphoto]').forEach(el=>{
+      el.onclick = ()=>{
+        const id = el.dataset.fetchphoto;
+        const wrap = document.getElementById('photo-preview-' + id);
+        wrap.innerHTML += `<img src="/api/pending-photo?id=${id}&type=id" style="max-width:160px;max-height:160px;border-radius:8px;border:1px solid var(--line);cursor:pointer;" onclick="window.open('/api/pending-photo?id=${id}&type=id','_blank')" title="ID proof — click to view full size">`;
+        el.remove();
+      };
+    });
+    document.querySelectorAll('[data-fetchpayment]').forEach(el=>{
+      el.onclick = ()=>{
+        const id = el.dataset.fetchpayment;
+        const wrap = document.getElementById('photo-preview-' + id);
+        wrap.innerHTML += `<img src="/api/pending-photo?id=${id}&type=payment" style="max-width:160px;max-height:160px;border-radius:8px;border:1px solid var(--line);cursor:pointer;" onclick="window.open('/api/pending-photo?id=${id}&type=payment','_blank')" title="Payment screenshot — click to view full size">`;
+        el.remove();
+      };
+    });
+    document.querySelectorAll('[data-editpending]').forEach(el=>{
+      el.onclick = ()=> showEditPendingModal(el.dataset.editpending);
+    });
+    document.querySelectorAll('[data-reject]').forEach(el=>{
+      el.onclick = ()=> showRejectModal(el.dataset.reject);
+    });
+    document.querySelectorAll('[data-approve]').forEach(el=>{
+      el.onclick = async ()=>{
+        el.disabled = true; el.textContent = 'Approving…';
+        try{
+          const result = await apiPost('/api/pending-approve', { pendingId: el.dataset.approve });
+          await loadPendingList(); await loadPublicAvailability();
+          render();
+          showToast(result.emailSent ? 'Approved — bill emailed to student' : 'Approved (email not sent: ' + (result.emailReason||'not configured') + ')');
+        }catch(err){
+          showToast(err.message || 'Failed to approve request');
+          el.disabled = false; el.textContent = 'Approve';
+        }
+      };
+    });
+  }
 }
 
 // ============================================================
@@ -1157,6 +1864,11 @@ function attachHandlers(){
 async function init(){
   await loadPublicAvailability();
   await resolveSession();
+  const draft = loadRegDraft();
+  if (draft && draft.regStep){
+    regStep = draft.regStep;
+    regFloor = draft.regFloor || 'F1';
+  }
   render();
 }
 init();
