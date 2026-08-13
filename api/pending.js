@@ -1,4 +1,4 @@
-import { sql, addMonths, todayISO } from '../lib/db.js';
+import { sql, addMonths, todayISO, toDateStr } from '../lib/db.js';
 import { requireStaff } from '../lib/auth.js';
 import { sendEmail, billEmailHTML } from '../lib/email.js';
 
@@ -34,7 +34,7 @@ async function doList(req, res){
   const rows = await sql`
     select id, name, phone, email,
            exam_prep as "examPrep",
-           join_date as "joinDate",
+           to_char(join_date, 'YYYY-MM-DD') as "joinDate",
            duration_months as "durationMonths",
            seat_id as "seatId",
            floor,
@@ -102,8 +102,9 @@ async function doApprove(req, res, session){
   if (seatTaken.length) return res.status(409).json({ error: 'That seat is now occupied by someone else. Reject this request or move it to a different seat first.' });
 
   const today = todayISO();
-  const expiryDate = addMonths(p.join_date, p.duration_months);
-  const lockerExpiry = p.locker_id ? addMonths(p.join_date, p.locker_months) : null;
+  const joinDate = toDateStr(p.join_date);
+  const expiryDate = addMonths(joinDate, p.duration_months);
+  const lockerExpiry = p.locker_id ? addMonths(joinDate, p.locker_months) : null;
 
   const inserted = await sql`
     insert into students (
@@ -111,9 +112,9 @@ async function doApprove(req, res, session){
       seat_id, floor, locker_id, locker_floor, locker_join_date, locker_months,
       locker_expiry_date, locker_deposit, id_photo, id_photo_type
     ) values (
-      ${p.name}, ${p.phone}, ${p.email}, ${p.exam_prep}, ${p.join_date}, ${p.duration_months}, ${expiryDate},
+      ${p.name}, ${p.phone}, ${p.email}, ${p.exam_prep}, ${joinDate}, ${p.duration_months}, ${expiryDate},
       ${p.seat_id}, ${p.floor}, ${p.locker_id}, ${p.locker_floor},
-      ${p.locker_id ? p.join_date : null}, ${p.locker_months},
+      ${p.locker_id ? joinDate : null}, ${p.locker_months},
       ${lockerExpiry}, ${p.locker_id ? 200 : null}, ${p.id_photo}, ${p.id_photo_type}
     )
     returning id`;
@@ -136,7 +137,7 @@ async function doApprove(req, res, session){
       subject: 'Your Vidyabhyasa registration is confirmed',
       html: billEmailHTML({
         name: p.name, seatId: p.seat_id, lockerId: p.locker_id,
-        joinDate: p.join_date, expiryDate, lockerExpiryDate: lockerExpiry,
+        joinDate, expiryDate, lockerExpiryDate: lockerExpiry,
         durationMonths: p.duration_months, amount: p.amount
       })
     });
