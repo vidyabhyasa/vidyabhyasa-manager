@@ -469,7 +469,7 @@ async function loadFullStudents(){
 
 async function resolveSession(){
   try{
-    const data = await apiGet('/api/me');
+    const data = await apiGet('/api/auth?action=me');
     session = data.session || null;
     if (session) await loadFullStudents();
   }catch(e){
@@ -526,7 +526,7 @@ function updateTopHeader(){
       <a href="#" id="logout-link" class="logout-link">Log out</a>`;
     document.getElementById('logout-link').onclick = async (e)=>{
       e.preventDefault();
-      await apiPost('/api/logout', {}).catch(()=>{});
+      await apiPost('/api/auth?action=logout', {}).catch(()=>{});
       session = null;
       currentPage = 'availability';
       render();
@@ -1070,7 +1070,7 @@ function renderReports(){
 // ============================================================
 async function loadPendingList(){
   try{
-    const data = await apiGet('/api/pending-registrations');
+    const data = await apiGet('/api/pending');
     pendingList = data.pending || [];
   }catch(e){
     pendingList = [];
@@ -1165,7 +1165,7 @@ function showEditPendingModal(pendingId){
     const lockerMonthsEl = document.getElementById('ep-locker-months');
     if (lockerMonthsEl) fields.lockerMonths = Number(lockerMonthsEl.value);
     try{
-      await apiPost('/api/pending-edit', { pendingId, fields });
+      await apiPost('/api/pending', { action: 'edit', pendingId, fields });
       await loadPendingList();
       closeModal(); render(); showToast('Request updated');
     }catch(err){ showToast(err.message || 'Failed to save changes'); }
@@ -1192,7 +1192,7 @@ function showRejectModal(pendingId){
   document.getElementById('reject-confirm').onclick = async ()=>{
     const reason = document.getElementById('reject-reason').value.trim();
     try{
-      await apiPost('/api/pending-reject', { pendingId, reason });
+      await apiPost('/api/pending', { action: 'reject', pendingId, reason });
       await loadPendingList(); await loadPublicAvailability();
       closeModal(); render(); showToast('Request rejected — seat is free again');
     }catch(err){ showToast(err.message || 'Failed to reject request'); }
@@ -1286,7 +1286,7 @@ function showStaffSeatModal(kind, floorId, num){
       </div>`;
     document.getElementById('remove-student').onclick = async (e)=>{
       const id = e.target.dataset.id;
-      await apiPost('/api/student-delete', { studentId: id }).catch(()=>{});
+      await apiPost('/api/student-actions', { action: 'delete', studentId: id }).catch(()=>{});
       await loadFullStudents(); await loadPublicAvailability();
       closeModal(); render(); showToast('Student removed');
     };
@@ -1294,7 +1294,7 @@ function showStaffSeatModal(kind, floorId, num){
     const assignBtn = document.getElementById('assign-locker');
     if (assignBtn) assignBtn.onclick = ()=> showAssignLockerModal(occ.id);
     if (occ.hasIdPhoto){
-      document.getElementById('id-photo-wrap').innerHTML = `<img src="/api/student-photo?id=${occ.id}" style="max-width:100%;max-height:180px;border-radius:8px;border:1px solid var(--line);cursor:pointer;" onclick="window.open('/api/student-photo?id=${occ.id}','_blank')" title="Click to view full size">`;
+      document.getElementById('id-photo-wrap').innerHTML = `<img src="/api/students?photo=1&id=${occ.id}" style="max-width:100%;max-height:180px;border-radius:8px;border:1px solid var(--line);cursor:pointer;" onclick="window.open('/api/students?photo=1&id=${occ.id}','_blank')" title="Click to view full size">`;
     }
   }
   document.getElementById('close-modal').onclick = closeModal;
@@ -1342,7 +1342,7 @@ function showStaffLockerModal(floorId, num){
         const amount = Number(amountRaw||0);
         if (amount<=0){ showToast('Enter a valid amount'); return; }
         try{
-          await apiPost('/api/student-locker', { studentId: sid, lockerId: label, floorId, months, amount });
+          await apiPost('/api/student-actions', { action: 'locker', studentId: sid, lockerId: label, floorId, months, amount });
           await loadFullStudents(); await loadPublicAvailability();
           closeModal(); render(); showToast('Locker ' + label + ' assigned');
         }catch(err){ showToast(err.message); }
@@ -1372,7 +1372,7 @@ function showStaffLockerModal(floorId, num){
       </div>`;
     document.getElementById('record-payment').onclick = ()=> showPaymentModal(occ.id);
     document.getElementById('unassign-locker').onclick = async ()=>{
-      await apiPost('/api/student-locker', { studentId: occ.id, action: 'remove' }).catch(()=>{});
+      await apiPost('/api/student-actions', { action: 'locker', lockerAction: 'remove', studentId: occ.id }).catch(()=>{});
       await loadFullStudents(); await loadPublicAvailability();
       closeModal(); render(); showToast('Locker removed from ' + occ.name);
     };
@@ -1426,7 +1426,7 @@ function showPaymentModal(studentId){
     const amountRaw = amountSel.value === 'other' ? document.getElementById('pm-amount-other').value : amountSel.value;
     const amount = Number(amountRaw || 0);
     if (amount <= 0){ showToast('Enter a valid amount'); return; }
-    await apiPost('/api/student-payment', { studentId: s.id, seatMonths, lockerMonths, amount }).catch(()=>{});
+    await apiPost('/api/student-actions', { action: 'payment', studentId: s.id, seatMonths, lockerMonths, amount }).catch(()=>{});
     await loadFullStudents();
     closeModal(); render(); showToast('Payment recorded for ' + s.name);
   };
@@ -1478,7 +1478,7 @@ function showAssignLockerModal(studentId){
     const amount = Number(amountRaw||0);
     if (amount<=0){ showToast('Enter a valid amount'); return; }
     try{
-      await apiPost('/api/student-locker', { studentId: s.id, lockerId, floorId, months, amount });
+      await apiPost('/api/student-actions', { action: 'locker', studentId: s.id, lockerId, floorId, months, amount });
       await loadFullStudents(); await loadPublicAvailability();
       closeModal(); render(); showToast('Locker ' + lockerId + ' assigned to ' + s.name);
     }catch(err){ showToast(err.message); }
@@ -1497,7 +1497,7 @@ function wireLoginForm(){
     const password = passInput.value;
     if (!email || !password){ errorMsg.textContent = 'Enter both email and password.'; errorMsg.style.display='block'; return; }
     try{
-      await apiPost('/api/login', { email, password });
+      await apiPost('/api/auth?action=login', { email, password });
     }catch(err){
       errorMsg.textContent = err.message || 'Incorrect email or password.';
       errorMsg.style.display = 'block';
@@ -1786,7 +1786,7 @@ function attachHandlers(){
     search.setSelectionRange(search.value.length, search.value.length);
     document.querySelectorAll('[data-remove]').forEach(el=>{
       el.onclick = async ()=>{
-        await apiPost('/api/student-delete', { studentId: el.dataset.remove }).catch(()=>{});
+        await apiPost('/api/student-actions', { action: 'delete', studentId: el.dataset.remove }).catch(()=>{});
         await loadFullStudents(); await loadPublicAvailability();
         render();
         showToast('Student removed');
@@ -1823,7 +1823,7 @@ function attachHandlers(){
       el.onclick = ()=>{
         const id = el.dataset.fetchphoto;
         const wrap = document.getElementById('photo-preview-' + id);
-        wrap.innerHTML += `<img src="/api/pending-photo?id=${id}&type=id" style="max-width:160px;max-height:160px;border-radius:8px;border:1px solid var(--line);cursor:pointer;" onclick="window.open('/api/pending-photo?id=${id}&type=id','_blank')" title="ID proof — click to view full size">`;
+        wrap.innerHTML += `<img src="/api/pending?photo=1&id=${id}&type=id" style="max-width:160px;max-height:160px;border-radius:8px;border:1px solid var(--line);cursor:pointer;" onclick="window.open('/api/pending?photo=1&id=${id}&type=id','_blank')" title="ID proof — click to view full size">`;
         el.remove();
       };
     });
@@ -1831,7 +1831,7 @@ function attachHandlers(){
       el.onclick = ()=>{
         const id = el.dataset.fetchpayment;
         const wrap = document.getElementById('photo-preview-' + id);
-        wrap.innerHTML += `<img src="/api/pending-photo?id=${id}&type=payment" style="max-width:160px;max-height:160px;border-radius:8px;border:1px solid var(--line);cursor:pointer;" onclick="window.open('/api/pending-photo?id=${id}&type=payment','_blank')" title="Payment screenshot — click to view full size">`;
+        wrap.innerHTML += `<img src="/api/pending?photo=1&id=${id}&type=payment" style="max-width:160px;max-height:160px;border-radius:8px;border:1px solid var(--line);cursor:pointer;" onclick="window.open('/api/pending?photo=1&id=${id}&type=payment','_blank')" title="Payment screenshot — click to view full size">`;
         el.remove();
       };
     });
@@ -1845,7 +1845,7 @@ function attachHandlers(){
       el.onclick = async ()=>{
         el.disabled = true; el.textContent = 'Approving…';
         try{
-          const result = await apiPost('/api/pending-approve', { pendingId: el.dataset.approve });
+          const result = await apiPost('/api/pending', { action: 'approve', pendingId: el.dataset.approve });
           await loadPendingList(); await loadPublicAvailability();
           render();
           showToast(result.emailSent ? 'Approved — bill emailed to student' : 'Approved (email not sent: ' + (result.emailReason||'not configured') + ')');

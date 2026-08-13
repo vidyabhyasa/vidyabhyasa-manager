@@ -66,7 +66,7 @@ document.getElementById('submitBtn').onclick = async () => {
 
   btn.disabled = true; btn.textContent = 'Creating…';
   try {
-    const res = await fetch(siteUrl + '/api/admin-create-staff', {
+    const res = await fetch(siteUrl + '/api/auth?action=admin-create-staff', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ secret, email, password, role, displayName })

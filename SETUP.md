@@ -5,6 +5,15 @@ This version uses **Neon** for the database and a small set of
 registration, and everything staff-only. Total cost: $0 on both
 free tiers for a single study center's traffic.
 
+Vercel's free "Hobby" plan caps a deployment at **12 serverless
+functions**. This project deliberately stays at **7** — related
+actions are grouped into one file each (e.g. `api/pending.js` handles
+listing, photo fetching, editing, approving, and rejecting requests,
+routed by an `action` query/body param) — so there's room to add more
+before ever hitting that limit. Shared code that isn't itself an
+endpoint (database connection, auth helpers, email, config) lives in
+`/lib`, outside `api/`, so it doesn't count against the limit at all.
+
 ## 1. Create your Neon database
 
 1. Go to [neon.tech](https://neon.tech) and sign up / log in.
@@ -77,7 +86,7 @@ emailed bill (staff will see a toast saying the email wasn't sent).
 
 ## Setting the UPI payment QR
 
-Open `api/_config.js` in this folder and fill in:
+Open `lib/config.js` in this folder and fill in:
 ```js
 export const UPI_ID = 'your-upi-id@bank';
 export const UPI_PAYEE_NAME = 'Vidyabhyasa Study Center';
@@ -87,7 +96,7 @@ export const UPI_PAYEE_NAME = 'Vidyabhyasa Study Center';
 code itself and needs the same values. Push both files together.
 
 The rules & regulations text students must accept before registering
-also lives in `api/_config.js` (`RULES_TEXT`) — edit the wording there,
+also lives in `lib/config.js` (`RULES_TEXT`) — edit the wording there,
 and copy the same array into `index.html`'s `RULES_TEXT` constant so
 the two stay in sync.
 
@@ -101,12 +110,13 @@ open in your browser, no terminal needed:
    **Create login**.
 2. Repeat once for the Manager and once for the Founder.
 
-**This requires the updated `admin-create-staff.js` to be deployed** —
-if you set up Vercel before this file was added, push this folder's
-current contents to your GitHub repo again so Vercel redeploys it:
+**This requires the current version of this project to be deployed**
+(with `api/auth.js`) — if you set up Vercel before this was added,
+push this folder's current contents to your GitHub repo again so
+Vercel redeploys it:
 ```bash
 git add .
-git commit -m "Add CORS support for staff creation tool"
+git commit -m "Update to consolidated API"
 git push
 ```
 
@@ -114,7 +124,7 @@ git push
 <summary>Prefer the terminal? (Mac/Linux/WSL only — not Windows cmd)</summary>
 
 ```bash
-curl -X POST https://your-site.vercel.app/api/admin-create-staff \
+curl -X POST "https://your-site.vercel.app/api/auth?action=admin-create-staff" \
   -H "Content-Type: application/json" \
   -d '{
     "secret": "the-SETUP_SECRET-you-set-in-step-3",
