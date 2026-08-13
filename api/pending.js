@@ -1,4 +1,4 @@
-import { sql, addMonths, todayISO, toDateStr } from '../lib/db.js';
+import { sql, addMonths, todayISO, toDateStr, toImageBuffer } from '../lib/db.js';
 import { requireStaff } from '../lib/auth.js';
 import { sendEmail, billEmailHTML } from '../lib/email.js';
 
@@ -67,7 +67,7 @@ async function doPhoto(req, res){
 
   res.setHeader('Content-Type', row.phototype || 'image/jpeg');
   res.setHeader('Cache-Control', 'private, max-age=60');
-  res.status(200).send(Buffer.from(row.photo));
+  res.status(200).send(toImageBuffer(row.photo));
 }
 
 async function doEdit(req, res){

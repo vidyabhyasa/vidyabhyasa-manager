@@ -1,4 +1,4 @@
-import { sql } from '../lib/db.js';
+import { sql, toImageBuffer } from '../lib/db.js';
 import { requireStaff } from '../lib/auth.js';
 
 export default async function handler(req, res){
@@ -49,5 +49,5 @@ async function doPhoto(req, res){
 
   res.setHeader('Content-Type', row.id_photo_type || 'image/jpeg');
   res.setHeader('Cache-Control', 'private, max-age=60');
-  res.status(200).send(Buffer.from(row.id_photo));
+  res.status(200).send(toImageBuffer(row.id_photo));
 }

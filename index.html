@@ -278,6 +278,96 @@ let pendingList = [];              // staff-only: pending approval queue
 const REG_DRAFT_KEY = 'vidya_register_draft';
 
 // ============================================================
+// Routing — real URLs, working back/forward, shareable links.
+// ============================================================
+const PAGE_PATHS = {
+  availability: '/',
+  dashboard: '/dashboard',
+  pending: '/pending',
+  subscriptions: '/subscriptions',
+  reports: '/reports'
+};
+const PATH_TO_PAGE = {
+  '/': 'availability',
+  '/dashboard': 'dashboard',
+  '/pending': 'pending',
+  '/subscriptions': 'subscriptions',
+  '/reports': 'reports'
+};
+const KNOWN_PAGES = ['availability', 'dashboard', 'pending', 'register', 'subscriptions', 'reports'];
+
+function pathForPage(page, step){
+  if (page === 'register'){
+    if (step === 2) return '/register/details';
+    if (step === 3) return '/register/payment';
+    if (step === 4) return '/register/done';
+    return '/register';
+  }
+  return PAGE_PATHS[page] || '/';
+}
+
+function parsePath(pathname){
+  const clean = pathname.replace(/\/+$/, '') || '/';
+  if (clean.startsWith('/register')){
+    const sub = clean.slice('/register'.length);
+    let step = 1;
+    if (sub === '/details') step = 2;
+    else if (sub === '/payment') step = 3;
+    else if (sub === '/done') step = 4;
+    return { page: 'register', step };
+  }
+  const page = PATH_TO_PAGE[clean];
+  return { page: KNOWN_PAGES.includes(page) ? page : 'availability' };
+}
+
+async function loadDataForPage(page){
+  if (page === 'availability' || page === 'register') await loadPublicAvailability();
+  if (GATED_PAGES.includes(page) && session) await loadFullStudents();
+  if (page === 'reports' && session && session.role === 'founder'){
+    render();
+    await loadReportsData();
+  }
+  if (page === 'pending' && session){
+    render();
+    await loadPendingList();
+  }
+  if (page === 'dashboard' && session){
+    await loadPendingList();
+  }
+}
+
+// Central navigation entry point — updates state, updates the URL
+// (with a real history entry so back/forward work), loads whatever
+// data that page needs, then renders. Use this instead of setting
+// currentPage directly.
+async function navigateTo(page, opts){
+  opts = opts || {};
+  currentPage = page;
+  if (page === 'register' && opts.step) regStep = opts.step;
+  const path = pathForPage(page, regStep);
+  const state = { page, regStep: page === 'register' ? regStep : undefined };
+  if (opts.replace) history.replaceState(state, '', path);
+  else history.pushState(state, '', path);
+  await loadDataForPage(page);
+  render();
+}
+
+window.onpopstate = async (event)=>{
+  const state = event.state;
+  let page, step;
+  if (state && state.page){
+    page = state.page; step = state.regStep;
+  } else {
+    const parsed = parsePath(location.pathname);
+    page = parsed.page; step = parsed.step;
+  }
+  currentPage = page;
+  if (page === 'register') regStep = step || 1;
+  await loadDataForPage(page);
+  render();
+};
+
+// ============================================================
 // Date / status helpers
 // ============================================================
 function seatLabel(floorId, num){ return floorId + '-' + String(num).padStart(2,'0'); }
@@ -418,6 +508,7 @@ function goToRegStep(step){
   existing.regStep = step;
   existing.regFloor = regFloor;
   try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
+  history.pushState({ page: 'register', regStep: step }, '', pathForPage('register', step));
   render();
 }
 
@@ -511,6 +602,7 @@ function render(){
     main.innerHTML = renderLogin();
   } else if (currentPage === 'reports' && (!session || session.role !== 'founder')){
     currentPage = 'dashboard';
+    history.replaceState({ page: 'dashboard' }, '', pathForPage('dashboard'));
     main.innerHTML = renderDashboard();
   } else if (currentPage === 'dashboard') main.innerHTML = renderDashboard();
   else if (currentPage === 'availability') main.innerHTML = renderAvailability();
@@ -543,12 +635,11 @@ function updateTopHeader(){
       e.preventDefault();
       await apiPost('/api/auth?action=logout', {}).catch(()=>{});
       session = null;
-      currentPage = 'availability';
-      render();
+      navigateTo('availability');
     };
   } else {
     box.innerHTML = `<button class="btn" id="header-login-btn">Staff login</button>`;
-    document.getElementById('header-login-btn').onclick = ()=>{ currentPage = 'dashboard'; render(); };
+    document.getElementById('header-login-btn').onclick = ()=> navigateTo('dashboard');
   }
 }
 
@@ -1301,12 +1392,13 @@ function showPublicResourceModal(kind, floorId, num){
     </div>`;
   const goBtn = document.getElementById('go-register');
   if (goBtn) goBtn.onclick = ()=>{
-    currentPage = 'register'; regFloor = floorId; regStep = 1;
+    regFloor = floorId;
     const existing = loadRegDraft() || {};
     existing['f-seat'] = label;
     existing.regFloor = floorId;
     try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
-    closeModal(); render();
+    closeModal();
+    navigateTo('register', { step: 1 });
   };
   document.getElementById('close-modal').onclick = closeModal;
   document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
@@ -1333,7 +1425,7 @@ function showPendingHoldModal(kind, floorId, num){
         </div>
       </div>
     </div>`;
-  document.getElementById('go-pending').onclick = ()=>{ closeModal(); currentPage = 'pending'; render(); };
+  document.getElementById('go-pending').onclick = ()=>{ closeModal(); navigateTo('pending'); };
   document.getElementById('close-modal').onclick = closeModal;
   document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
 }
@@ -1355,14 +1447,13 @@ function showStaffSeatModal(kind, floorId, num){
         </div>
       </div>`;
     document.getElementById('go-register').onclick = async ()=>{
-      currentPage='register'; regFloor=floorId; regStep = 1;
+      regFloor = floorId;
       const existing = loadRegDraft() || {};
       existing['f-seat'] = seatLabel(floorId,num);
       existing.regFloor = floorId;
       try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
       closeModal();
-      await loadPublicAvailability();
-      render();
+      await navigateTo('register', { step: 1 });
     };
   } else {
     const st = statusOf(occ);
@@ -1621,23 +1712,7 @@ function wireLoginForm(){
 
 function attachHandlers(){
   document.querySelectorAll('.nav-item').forEach(el=>{
-    el.onclick = async ()=>{
-      currentPage = el.dataset.page;
-      if (currentPage === 'availability' || currentPage === 'register') await loadPublicAvailability();
-      if (GATED_PAGES.includes(currentPage) && session) await loadFullStudents();
-      if (currentPage === 'reports' && session && session.role === 'founder'){
-        render();
-        await loadReportsData();
-      }
-      if (currentPage === 'pending' && session){
-        render();
-        await loadPendingList();
-      }
-      if (currentPage === 'dashboard' && session){
-        await loadPendingList();
-      }
-      render();
-    };
+    el.onclick = ()=> navigateTo(el.dataset.page);
   });
 
   if (GATED_PAGES.includes(currentPage) && !session){
@@ -1871,6 +1946,7 @@ function attachHandlers(){
         clearRegDraft();
         await loadPublicAvailability();
         regStep = 4;
+        history.pushState({ page: 'register', regStep: 4 }, '', pathForPage('register', 4));
         render();
       }catch(err){
         showToast(err.message || 'Registration failed. Please try again.');
@@ -1883,8 +1959,7 @@ function attachHandlers(){
   if (currentPage === 'register' && regStep === 4){
     document.getElementById('done-back-btn').onclick = ()=>{
       regStep = 1;
-      currentPage = 'availability';
-      render();
+      navigateTo('availability');
     };
   }
 
@@ -1976,13 +2051,31 @@ function attachHandlers(){
 // Init
 // ============================================================
 async function init(){
+  const parsed = parsePath(location.pathname);
+  currentPage = parsed.page;
+  if (currentPage === 'register') regStep = parsed.step || 1;
+
+  // Only fall back to resuming an in-progress registration draft when
+  // there's no specific deep link in the URL (i.e. someone just opened
+  // the site fresh) — an explicit URL always wins.
+  if (currentPage === 'availability'){
+    const draft = loadRegDraft();
+    if (draft && draft.regStep){
+      currentPage = 'register';
+      regStep = draft.regStep;
+      regFloor = draft.regFloor || 'F1';
+    }
+  }
+
   await loadPublicAvailability();
   await resolveSession();
-  const draft = loadRegDraft();
-  if (draft && draft.regStep){
-    regStep = draft.regStep;
-    regFloor = draft.regFloor || 'F1';
-  }
+  await loadDataForPage(currentPage);
+
+  history.replaceState(
+    { page: currentPage, regStep: currentPage === 'register' ? regStep : undefined },
+    '',
+    pathForPage(currentPage, regStep)
+  );
   render();
 }
 init();
