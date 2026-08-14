@@ -103,7 +103,7 @@
   .seat-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:8px;}
   .seat-grid h4{font-weight:600;}
   .seat{
-    min-height:52px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    min-height:62px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;
     font-size:12px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:transform .1s;
     padding:4px 3px;overflow:hidden;
   }
@@ -111,6 +111,10 @@
   .seat-name{
     font-size:9px;font-weight:400;line-height:1.2;white-space:nowrap;overflow:hidden;
     text-overflow:ellipsis;max-width:100%;margin-top:2px;opacity:0.85;
+  }
+  .seat-days{
+    font-size:8px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;max-width:100%;margin-top:1px;opacity:0.8;letter-spacing:0.2px;
   }
   .seat:hover{transform:scale(1.06);}
   .seat.free{background:var(--free-bg);color:var(--free-text);border-color:var(--free);border-width:1.5px;}
@@ -163,8 +167,8 @@
   .modal-overlay{position:fixed;inset:0;background:rgba(22,50,79,0.45);display:flex;align-items:center;justify-content:center;z-index:50;}
   .modal{background:#fff;border-radius:14px;padding:26px 28px;width:380px;max-width:90vw;}
   .modal h3{font-size:18px;margin-bottom:4px;}
-  .modal .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;}
-  .modal .row span:first-child{color:var(--muted);}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;gap:14px;}
+  .row span:first-child{color:var(--muted);flex-shrink:0;}
   .modal-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;}
   .empty{color:var(--muted);font-size:14px;padding:30px 0;text-align:center;}
   .toast{
@@ -732,15 +736,18 @@ function buildFloorCells(floor, isLockers, dashStatusFilter, q){
     const occ = isLockers ? lockerOccupantOf(floor.id, i) : occupantOf(floor.id, i);
     const pending = !occ ? pendingHolds(isLockers ? 'locker' : 'seat', floor.id, i) : null;
     const st = occ ? (isLockers ? lockerStatusOf(occ) : statusOf(occ)) : null;
-    let cls, cellStatus, cellTitle, personName;
+    let cls, cellStatus, cellTitle, personName, daysLabel;
     if (pending){
-      cls = 'pend'; cellStatus = 'pending'; cellTitle = pending.name + ' (pending approval)'; personName = pending.name;
+      cls = 'pend'; cellStatus = 'pending'; cellTitle = pending.name + ' (pending approval)'; personName = pending.name; daysLabel = '';
     } else if (!occ){
-      cls = 'free'; cellStatus = 'free'; cellTitle = 'Free'; personName = '';
+      cls = 'free'; cellStatus = 'free'; cellTitle = 'Free'; personName = ''; daysLabel = '';
     } else {
       cellStatus = st;
       cls = st === 'critical' ? 'crit' : st === 'overdue' ? 'due' : st === 'warning' ? 'warn' : 'occ';
       cellTitle = occ.name; personName = occ.name;
+      const d = isLockers ? daysUntil(occ.lockerExpiryDate) : daysUntil(occ.expiryDate);
+      daysLabel = d >= 0 ? d + 'd left' : Math.abs(d) + 'd over';
+      cellTitle += ' — ' + daysLabel;
     }
 
     let matchesFilter = dashStatusFilter === 'all'
@@ -758,7 +765,8 @@ function buildFloorCells(floor, isLockers, dashStatusFilter, q){
     const kindAttr = isLockers ? 'locker' : 'seat';
     const pendAttr = pending ? ' data-pending="1"' : '';
     const nameHtml = personName ? '<span class="seat-name">'+truncateName(personName)+'</span>' : '';
-    html += '<div class="seat '+cls+'" data-kind="'+kindAttr+'" data-floor="'+floor.id+'" data-num="'+i+'"'+pendAttr+' title="'+cellTitle+'"><span class="seat-num">'+i+'</span>'+nameHtml+'</div>';
+    const daysHtml = daysLabel ? '<span class="seat-days">'+daysLabel+'</span>' : '';
+    html += '<div class="seat '+cls+'" data-kind="'+kindAttr+'" data-floor="'+floor.id+'" data-num="'+i+'"'+pendAttr+' title="'+cellTitle+'"><span class="seat-num">'+i+'</span>'+nameHtml+daysHtml+'</div>';
   }
   return { html, visibleCount };
 }
@@ -1100,25 +1108,39 @@ function buildUpiQrUrl(amount, note){
   return 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=' + encodeURIComponent(upiUri);
 }
 
+// Locker adds a flat ₹200 refundable deposit plus ₹100 per month of
+// the locker term, on top of whatever the seat amount is.
+function computeLockerCharge(draft){
+  if (!draft['f-locker']) return 0;
+  const months = Number(draft['f-locker-months'] || 1);
+  return LOCKER_DEPOSIT + LOCKER_MONTHLY * months;
+}
+
 function renderRegisterPayment(){
   const draft = loadRegDraft() || {};
   const seatId = draft['f-seat'] || '';
   const initialAmount = draft['pay-amount'] || PAYMENT_PRESETS[0];
+  const seatBase = initialAmount === 'other' ? Number(draft['pay-amount-other']||0) : Number(initialAmount);
+  const lockerCharge = computeLockerCharge(draft);
+  const total = seatBase + lockerCharge;
+  const lockerMonths = Number(draft['f-locker-months'] || 1);
   return `
     <div class="page-head">
       <h2>Payment</h2>
       ${stepProgress(3)}
     </div>
     <div class="card" style="max-width:420px;">
-      <label>Amount to pay</label>
+      <label>Seat amount</label>
       <select id="pay-amount">${paymentAmountOptionsHTML(draft['pay-amount'])}</select>
       <div id="pay-amount-other-wrap" style="display:none;">
         <label>Enter amount (₹)</label>
         <input type="number" id="pay-amount-other" min="1" value="${draft['pay-amount-other']||''}">
       </div>
+      ${draft['f-locker'] ? `<p style="font-size:13px;color:var(--muted);margin:-8px 0 14px;">+ Locker deposit ₹${LOCKER_DEPOSIT} + ₹${LOCKER_MONTHLY} × ${lockerMonths} month(s) = ₹${lockerCharge}</p>` : ''}
+      <div style="font-weight:700;font-size:17px;margin-bottom:16px;padding-top:8px;border-top:1px solid var(--line);">Total to pay: ₹<span id="pay-total-display">${total}</span></div>
       <div style="text-align:center;margin:16px 0;">
-        <img id="upi-qr-img" src="${buildUpiQrUrl(initialAmount === 'other' ? (draft['pay-amount-other']||1) : initialAmount, 'Seat ' + seatId)}" style="width:220px;height:220px;border:1px solid var(--line);border-radius:8px;">
-        <p style="font-size:12px;color:var(--muted);margin-top:8px;">Scan with any UPI app and pay the amount above, then upload your screenshot below.</p>
+        <img id="upi-qr-img" src="${buildUpiQrUrl(total || 1, 'Seat ' + seatId)}" style="width:220px;height:220px;border:1px solid var(--line);border-radius:8px;">
+        <p style="font-size:12px;color:var(--muted);margin-top:8px;">Scan with any UPI app and pay the total above, then upload your screenshot below.</p>
       </div>
       <label>Upload payment screenshot</label>
       <input type="file" id="pay-screenshot" accept="image/*">
@@ -2344,13 +2366,19 @@ function attachHandlers(){
     const otherWrap = document.getElementById('pay-amount-other-wrap');
     otherWrap.style.display = amountSel.value === 'other' ? 'block' : 'none';
 
-    const refreshQr = ()=>{
-      const amt = amountSel.value === 'other' ? (document.getElementById('pay-amount-other').value || 1) : amountSel.value;
-      document.getElementById('upi-qr-img').src = buildUpiQrUrl(amt, 'Seat ' + seatId);
+    const currentTotal = ()=>{
+      const seatBase = amountSel.value === 'other' ? Number(document.getElementById('pay-amount-other').value || 0) : Number(amountSel.value);
+      return seatBase + computeLockerCharge(draft);
     };
-    amountSel.onchange = ()=>{ otherWrap.style.display = amountSel.value === 'other' ? 'block' : 'none'; saveRegDraft(); refreshQr(); };
+    const refreshTotal = ()=>{
+      const total = currentTotal();
+      const totalEl = document.getElementById('pay-total-display');
+      if (totalEl) totalEl.textContent = total;
+      document.getElementById('upi-qr-img').src = buildUpiQrUrl(total || 1, 'Seat ' + seatId);
+    };
+    amountSel.onchange = ()=>{ otherWrap.style.display = amountSel.value === 'other' ? 'block' : 'none'; saveRegDraft(); refreshTotal(); };
     const otherInput = document.getElementById('pay-amount-other');
-    if (otherInput) otherInput.oninput = ()=>{ saveRegDraft(); refreshQr(); };
+    if (otherInput) otherInput.oninput = ()=>{ saveRegDraft(); refreshTotal(); };
 
     document.getElementById('pay-back-btn').onclick = ()=>{ saveRegDraft(); goToRegStep(2); };
 
@@ -2376,8 +2404,7 @@ function attachHandlers(){
       submitBtn.disabled = true; submitBtn.textContent = 'Submitting…';
 
       const finalDraft = loadRegDraft() || {};
-      const amountRaw = amountSel.value === 'other' ? document.getElementById('pay-amount-other').value : amountSel.value;
-      const amount = Number(amountRaw || 0);
+      const amount = currentTotal();
       if (amount <= 0){
         showFieldError('pay-screenshot','err-screenshot','Enter a valid amount.');
         submitBtn.disabled = false; submitBtn.textContent = 'Submit registration';

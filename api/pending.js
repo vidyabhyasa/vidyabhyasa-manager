@@ -113,6 +113,7 @@ async function doApprove(req, res, session){
   const joinDate = toDateStr(p.join_date);
   const expiryDate = addMonths(joinDate, p.duration_months);
   const lockerExpiry = p.locker_id ? addMonths(joinDate, p.locker_months) : null;
+  const idPhotoBuffer = toImageBuffer(p.id_photo);
 
   const inserted = await sql`
     insert into students (
@@ -123,7 +124,7 @@ async function doApprove(req, res, session){
       ${p.name}, ${p.phone}, ${p.email}, ${p.exam_prep}, ${joinDate}, ${p.duration_months}, ${expiryDate},
       ${p.seat_id}, ${p.floor}, ${p.locker_id}, ${p.locker_floor},
       ${p.locker_id ? joinDate : null}, ${p.locker_months},
-      ${lockerExpiry}, ${p.locker_id ? 200 : null}, ${p.id_photo}, ${p.id_photo_type}
+      ${lockerExpiry}, ${p.locker_id ? 200 : null}, ${idPhotoBuffer}, ${p.id_photo_type}
     )
     returning id`;
   const studentId = inserted[0].id;
