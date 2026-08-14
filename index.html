@@ -61,6 +61,7 @@
   }
   .nav-item:hover{background:rgba(255,255,255,0.05);}
   .nav-item.active{background:rgba(227,168,87,0.12);border-left-color:var(--amber);color:#fff;font-weight:500;}
+  .nav-item.auth-only, .nav-item.founder-only{display:none;}
   .nav-icon{width:16px;text-align:center;font-size:14px;}
   main{flex:1;padding:36px 40px;max-width:1180px;}
   .top-header{
@@ -1069,14 +1070,15 @@ function renderRegisterDetails(){
         </div>
         <div class="grid-2">
           <div>
-            <label>Email ID (optional — bill is sent here on approval)</label>
-            <input type="email" id="f-email" placeholder="name@example.com">
+            <label>Email ID</label>
+            <input type="email" id="f-email" required placeholder="name@example.com">
             <small class="field-error" id="err-email"></small>
           </div>
           <div>
             <label>Upload ID proof (photo or scan)</label>
             <input type="file" id="f-id-file" accept="image/*">
             <div id="f-id-preview" style="display:none;margin-top:-8px;margin-bottom:16px;"></div>
+            <small class="field-error" id="err-idphoto"></small>
           </div>
         </div>
         <div class="grid-2">
@@ -1785,6 +1787,14 @@ function showStaffSeatModal(kind, floorId, num){
             <div class="row"><span>Joined</span><span>${occ.joinDate}</span></div>
             <div class="row"><span>Expires</span><span>${occ.expiryDate}</span></div>
             <div class="row"><span>Total paid</span><span>₹${totalPaid(occ)}</span></div>
+            ${(() => {
+              const seatCharge = openChargeFor(occ, 'seat');
+              const lockerCharge = openChargeFor(occ, 'locker');
+              let html = '';
+              if (seatCharge) html += `<div class="row"><span>Seat balance due</span><span style="color:var(--warn-text);font-weight:600;">₹${seatCharge.amountDue - seatCharge.amountPaid}</span></div>`;
+              if (lockerCharge) html += `<div class="row"><span>Locker balance due</span><span style="color:var(--warn-text);font-weight:600;">₹${lockerCharge.amountDue - lockerCharge.amountPaid}</span></div>`;
+              return html;
+            })()}
           </div>
           <div id="id-photo-wrap" style="margin-top:10px;"></div>
           <div class="modal-actions">
@@ -1836,12 +1846,9 @@ function showStaffLockerModal(floorId, num){
             <select id="al-student">${options}</select>
             <label>Subscription (months)</label>
             <select id="al-months">${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}">${m} month${m>1?'s':''}</option>`).join('')}</select>
-            <label>Amount paid</label>
-            <select id="al-amount">${paymentAmountOptionsHTML()}</select>
-            <div id="al-amount-other-wrap" style="display:none;">
-              <label>Enter amount (₹)</label>
-              <input type="number" id="al-amount-other" min="0">
-            </div>
+            <p style="font-size:12px;color:var(--muted);margin:-8px 0 14px;">Amount due: ₹<span id="al-due-display">${LOCKER_DEPOSIT + LOCKER_MONTHLY}</span> (₹${LOCKER_DEPOSIT} deposit + ₹${LOCKER_MONTHLY}/month)</p>
+            <label>Amount paid (₹)</label>
+            <input type="number" id="al-amount" min="1" value="${LOCKER_DEPOSIT + LOCKER_MONTHLY}">
           ` : `<p style="color:var(--muted);font-size:13px;">No registered students are currently without a locker.</p>`}
           <div class="modal-actions">
             ${eligible.length ? '<button class="btn" id="al-submit">Assign locker</button>' : ''}
@@ -1850,14 +1857,18 @@ function showStaffLockerModal(floorId, num){
         </div>
       </div>`;
     if (eligible.length){
-      const amountSel = document.getElementById('al-amount');
-      const otherWrap = document.getElementById('al-amount-other-wrap');
-      amountSel.onchange = ()=>{ otherWrap.style.display = amountSel.value==='other'?'block':'none'; };
+      const monthsSel = document.getElementById('al-months');
+      const amountInput = document.getElementById('al-amount');
+      const dueDisplay = document.getElementById('al-due-display');
+      monthsSel.onchange = ()=>{
+        const due = LOCKER_DEPOSIT + LOCKER_MONTHLY * Number(monthsSel.value);
+        dueDisplay.textContent = due;
+        amountInput.value = due;
+      };
       document.getElementById('al-submit').onclick = async ()=>{
         const sid = document.getElementById('al-student').value;
-        const months = document.getElementById('al-months').value;
-        const amountRaw = amountSel.value==='other' ? document.getElementById('al-amount-other').value : amountSel.value;
-        const amount = Number(amountRaw||0);
+        const months = monthsSel.value;
+        const amount = Number(amountInput.value || 0);
         if (amount<=0){ showToast('Enter a valid amount'); return; }
         try{
           await apiPost('/api/student-actions', { action: 'locker', studentId: sid, lockerId: label, floorId, months, amount });
@@ -2164,21 +2175,23 @@ function showAssignLockerModal(studentId){
         <select id="al2-locker">${lockerOptions || '<option value="">No free lockers</option>'}</select>
         <label>Subscription (months)</label>
         <select id="al2-months">${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}">${m} month${m>1?'s':''}</option>`).join('')}</select>
-        <label>Amount paid</label>
-        <select id="al2-amount">${paymentAmountOptionsHTML()}</select>
-        <div id="al2-amount-other-wrap" style="display:none;">
-          <label>Enter amount (₹)</label>
-          <input type="number" id="al2-amount-other" min="0">
-        </div>
+        <p style="font-size:12px;color:var(--muted);margin:-8px 0 14px;">Amount due: ₹<span id="al2-due-display">${LOCKER_DEPOSIT + LOCKER_MONTHLY}</span> (₹${LOCKER_DEPOSIT} deposit + ₹${LOCKER_MONTHLY}/month)</p>
+        <label>Amount paid (₹)</label>
+        <input type="number" id="al2-amount" min="1" value="${LOCKER_DEPOSIT + LOCKER_MONTHLY}">
         <div class="modal-actions">
           <button class="btn" id="al2-submit">Assign locker</button>
           <button class="btn btn-outline" id="close-modal">Close</button>
         </div>
       </div>
     </div>`;
-  const amountSel = document.getElementById('al2-amount');
-  const otherWrap = document.getElementById('al2-amount-other-wrap');
-  amountSel.onchange = ()=>{ otherWrap.style.display = amountSel.value==='other'?'block':'none'; };
+  const monthsSel = document.getElementById('al2-months');
+  const amountInput = document.getElementById('al2-amount');
+  const dueDisplay = document.getElementById('al2-due-display');
+  monthsSel.onchange = ()=>{
+    const due = LOCKER_DEPOSIT + LOCKER_MONTHLY * Number(monthsSel.value);
+    dueDisplay.textContent = due;
+    amountInput.value = due;
+  };
   document.getElementById('close-modal').onclick = closeModal;
   document.getElementById('ov').onclick = (e)=>{ if(e.target.id==='ov') closeModal(); };
   document.getElementById('al2-submit').onclick = async ()=>{
@@ -2186,9 +2199,8 @@ function showAssignLockerModal(studentId){
     const lockerId = lockerSel.value;
     if (!lockerId){ showToast('No free locker selected'); return; }
     const floorId = lockerSel.selectedOptions[0].dataset.floor;
-    const months = document.getElementById('al2-months').value;
-    const amountRaw = amountSel.value==='other' ? document.getElementById('al2-amount-other').value : amountSel.value;
-    const amount = Number(amountRaw||0);
+    const months = monthsSel.value;
+    const amount = Number(amountInput.value || 0);
     if (amount<=0){ showToast('Enter a valid amount'); return; }
     try{
       await apiPost('/api/student-actions', { action: 'locker', studentId: s.id, lockerId, floorId, months, amount });
@@ -2620,6 +2632,7 @@ function attachHandlers(){
       try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
       preview.style.display = 'block';
       preview.innerHTML = `<img src="${resized}" style="max-width:140px;max-height:100px;border-radius:6px;border:1px solid var(--line);">`;
+      clearFieldError('f-id-file','err-idphoto');
     };
 
     form.onsubmit = (e)=>{
@@ -2638,12 +2651,15 @@ function attachHandlers(){
       clearFieldError('f-email','err-email');
       clearFieldError('f-exam','err-exam');
       clearFieldError('f-join','err-join');
+      clearFieldError('f-id-file','err-idphoto');
 
       if (!nameVal || nameVal.length < 2){ showFieldError('f-name','err-name',"Enter the student's full name."); valid = false; }
       if (!isValidPhone(phoneVal)){ showFieldError('f-phone','err-phone','Phone number must be exactly 10 digits.'); valid = false; }
-      if (!isValidEmail(emailVal)){ showFieldError('f-email','err-email','Enter a valid email address, or leave it blank.'); valid = false; }
+      if (!emailVal){ showFieldError('f-email','err-email','Enter an email address.'); valid = false; }
+      else if (!isValidEmail(emailVal)){ showFieldError('f-email','err-email','Enter a valid email address.'); valid = false; }
       if (!examVal){ showFieldError('f-exam','err-exam','Enter the exam this student is preparing for.'); valid = false; }
       if (!joinVal){ showFieldError('f-join','err-join','Pick a date of joining.'); valid = false; }
+      if (!fileInput.dataset.resized){ showFieldError('f-id-file','err-idphoto','Upload a photo of the student\u2019s ID proof.'); valid = false; }
       if (!seatId){ showToast('No seat selected'); valid = false; }
       if (!valid) return;
 

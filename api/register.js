@@ -4,10 +4,11 @@ export default async function handler(req, res){
   try{
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
     const b = req.body || {};
-    const required = ['name', 'phone', 'examPrep', 'joinDate', 'durationMonths', 'seatId', 'amount', 'rulesAcceptedAt'];
+    const required = ['name', 'phone', 'email', 'examPrep', 'joinDate', 'durationMonths', 'seatId', 'amount', 'rulesAcceptedAt'];
     for (const k of required){
       if (b[k] === undefined || b[k] === null || b[k] === '') return res.status(400).json({ error: 'Missing field: ' + k });
     }
+    if (!b.photoBase64) return res.status(400).json({ error: 'ID proof photo is required' });
 
     // A seat/locker is held if it's an active student OR an
     // unresolved pending request — either way it's not free.
