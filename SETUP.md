@@ -98,21 +98,32 @@ emailed bill (staff will see a toast saying the email wasn't sent).
 5. Redeploy (Vercel → Deployments → ⋯ → Redeploy) after adding these
    so the functions pick up the new environment variables.
 
-## Setting the UPI payment QR
+## UPI payment, rules text, logo, and site URL
 
-Open `lib/config.js` in this folder and fill in:
-```js
-export const UPI_ID = 'your-upi-id@bank';
-export const UPI_PAYEE_NAME = 'Vidyabhyasa Study Center';
-```
-**Also update the matching copy of these two lines near the top of
-`index.html`'s `<script>` section** — the frontend generates the QR
-code itself and needs the same values. Push both files together.
+`lib/config.js` now has your real values already filled in:
+- `UPI_ID` — `paytm.s21tdlt@pty`
+- `UPI_PAYEE_NAME` — `Vidyabhyasa Study Center`
+- `RULES_TEXT` — the 15 rules from your printed signage, each with an
+  icon and short label, shown as a grid on the registration form
+- `RULES_NOTES` — the late-payment/grace-period note, shown as a
+  highlighted callout below the rules grid
 
-The rules & regulations text students must accept before registering
-also lives in `lib/config.js` (`RULES_TEXT`) — edit the wording there,
-and copy the same array into `index.html`'s `RULES_TEXT` constant so
-the two stay in sync.
+**If you ever need to change any of these**, edit `lib/config.js`,
+then copy the same values into the matching constants near the top of
+`index.html`'s `<script>` section (the frontend renders its own copy
+so it doesn't need a network call just to show the rules) — push both
+files together so they don't drift out of sync.
+
+Also set `SITE_URL` in `lib/config.js` to your actual deployed domain
+once you know it (defaults to `https://vidyabhyasa-manager.vercel.app`)
+— this is only used to build an absolute link to your logo for the
+bill email, since emails can't use relative image paths.
+
+**Logo**: `logo.jpeg` and `favicon.png` sit at the project root and
+are served as plain static files (same as `index.html`) — no config
+needed, just make sure both files are included when you push. They
+show up in the sidebar, the staff login screen, the registration
+rules step, the browser tab icon, and the bill email.
 
 ## 4. Create your two staff logins
 

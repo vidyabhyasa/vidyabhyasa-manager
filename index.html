@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vidyabhyasa — Study Center Manager</title>
+<link rel="icon" type="image/png" href="/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -193,9 +194,12 @@
 
 <div class="app">
   <div class="sidebar">
-    <div class="brand">
-      <h1>Vidyabhyasa</h1>
-      <p>Study center, Mysuru</p>
+    <div class="brand" style="display:flex;align-items:center;gap:10px;">
+      <img src="/logo.jpeg" alt="Vidyabhyasa" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;">
+      <div>
+        <h1>Vidyabhyasa</h1>
+        <p>Study center, Mysuru</p>
+      </div>
     </div>
     <div id="nav">
       <div class="nav-item guest-only" data-page="availability"><span class="nav-icon">◎</span> Availability</div>
@@ -257,20 +261,29 @@ const SEAT_TO_LOCKER_FLOOR = { F1:'L1', F2:'L2' };
 const PAYMENT_PRESETS = [1000, 1900, 2800];
 const GATED_PAGES = ['dashboard', 'subscriptions', 'reports', 'pending', 'audit'];
 
-// Keep these in sync with api/_config.js
-const UPI_ID = 'your-upi-id@bank';
+// Keep these in sync with lib/config.js
+const UPI_ID = 'paytm.s21tdlt@pty';
 const UPI_PAYEE_NAME = 'Vidyabhyasa Study Center';
 const RULES_TEXT = [
-  'Seats and lockers are allotted for personal use only and cannot be shared or transferred to another person.',
-  'A valid photo ID must be uploaded at registration and may be asked for again at the center.',
-  'Maintain silence in the study area at all times. Phones must be on silent mode.',
-  'Food is not allowed at the seating area. Water bottles are permitted.',
-  'The center is not responsible for personal belongings left unattended.',
-  'Any damage to furniture or equipment will be charged to the student responsible.',
-  'The locker deposit is refundable only on surrender of the locker in good condition.',
-  'Fees once paid are non-refundable except at the center\u2019s discretion.',
-  'The center reserves the right to reassign or reclaim a seat/locker if fees are not renewed within the grace period after expiry.',
-  'Management reserves the right to update these rules; continued use of the center implies acceptance of the current rules.'
+  { icon: '🤫', label: 'Silence', text: 'Keep silence in the study centre.' },
+  { icon: '🚫', label: 'Discussions', text: 'Discussion and disturbing others are strictly not allowed inside the study centre.' },
+  { icon: '🏫', label: 'Entry', text: 'Only admitted members are allowed inside the study centre.' },
+  { icon: '📵', label: 'Phone calls', text: 'Talking on the phone is not allowed inside the study centre.' },
+  { icon: '🪑', label: 'Seating', text: 'One should sit in the allotted seat only.' },
+  { icon: '📢', label: 'Concerns', text: 'If any problems or discomfort, contact management immediately.' },
+  { icon: '🍽️', label: 'Food', text: 'Do not eat on the study table.' },
+  { icon: '🧹', label: 'Cleanliness', text: 'Maintain cleanliness at all times.' },
+  { icon: '⚠️', label: 'Property', text: 'Marking, scratching, or damaging library property invites disciplinary action.' },
+  { icon: '🎧', label: 'Online classes', text: 'Headphones/earbuds should be used while listening to online classes.' },
+  { icon: '💳', label: 'Refunds', text: 'No refund after registration.' },
+  { icon: '📰', label: 'Newspapers', text: 'Keep newspaper in the stand after reading.' },
+  { icon: '💎', label: 'Valuables', text: 'Do not keep money, gold, or valuable items on the desk.' },
+  { icon: '🔄', label: 'Seat changes', text: 'Inform management and get approval before changing your allotted seat.' },
+  { icon: '🌀', label: 'Fans', text: "Do not adjust fan positions — they're already set for proper airflow to all members." }
+];
+const RULES_NOTES = [
+  'Late payment does not extend your membership. Renewals are always calculated from your due date, not the payment date.',
+  'Fee must be paid within 3 days after the due date to retain your seat. If payment is not received within 3 days, your books will be moved to the locker, and the seat may be allotted to another member. Books will be returned after clearing all pending dues.'
 ];
 
 // ============================================================
@@ -706,6 +719,9 @@ function renderLogin(){
       <p>Sign in to access ${pageLabels[currentPage] || 'this page'}.</p>
     </div>
     <div class="card" style="max-width:340px;">
+      <div style="text-align:center;margin-bottom:16px;">
+        <img src="/logo.jpeg" alt="Vidyabhyasa" style="width:56px;height:56px;border-radius:10px;object-fit:cover;">
+      </div>
       <label>Email</label>
       <input type="email" id="login-email" placeholder="you@vidyabhyasa.example" autocomplete="username">
       <label>Password</label>
@@ -983,11 +999,25 @@ function renderRegisterRules(){
       <h2>Before you begin</h2>
       ${stepProgress(1)}
     </div>
-    <div class="card" style="max-width:560px;">
-      <h3 style="font-size:15px;margin-bottom:14px;">Rules & regulations</h3>
-      <ul style="padding-left:20px;line-height:1.9;font-size:14px;color:var(--ink-light);margin:0 0 18px;">
-        ${RULES_TEXT.map(r=>`<li>${r}</li>`).join('')}
-      </ul>
+    <div class="card" style="max-width:640px;">
+      <div style="text-align:center;margin-bottom:20px;">
+        <img src="/logo.jpeg" alt="Vidyabhyasa" style="width:72px;height:72px;border-radius:12px;object-fit:cover;">
+      </div>
+      <h3 style="font-size:16px;margin-bottom:18px;text-align:center;">Rules & Regulations</h3>
+      <div class="grid-2" style="gap:18px 26px;margin-bottom:22px;">
+        ${RULES_TEXT.map(r=>`
+          <div style="display:flex;gap:10px;align-items:flex-start;">
+            <div style="font-size:19px;line-height:1.3;flex-shrink:0;width:26px;text-align:center;">${r.icon}</div>
+            <div>
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);font-weight:600;margin-bottom:2px;">${r.label}</div>
+              <div style="font-size:13px;color:var(--ink);line-height:1.4;">${r.text}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div style="background:var(--warn-bg);border:1px solid var(--warn);border-radius:10px;padding:14px 16px;margin-bottom:22px;">
+        ${RULES_NOTES.map((n,i)=>`<p style="font-size:12.5px;color:var(--warn-text);line-height:1.5;${i>0?'margin-top:8px;':''}">${n}</p>`).join('')}
+      </div>
       <label style="display:flex;align-items:flex-start;gap:10px;font-weight:400;margin-bottom:0;">
         <input type="checkbox" id="rules-accept" style="width:auto;margin:3px 0 0;" ${accepted?'checked':''}>
         <span>I have read and agree to the rules and regulations above.</span>
@@ -1140,6 +1170,10 @@ function renderRegisterPayment(){
       <div style="font-weight:700;font-size:17px;margin-bottom:16px;padding-top:8px;border-top:1px solid var(--line);">Total to pay: ₹<span id="pay-total-display">${total}</span></div>
       <div style="text-align:center;margin:16px 0;">
         <img id="upi-qr-img" src="${buildUpiQrUrl(total || 1, 'Seat ' + seatId)}" style="width:220px;height:220px;border:1px solid var(--line);border-radius:8px;">
+        <div style="display:inline-flex;align-items:center;gap:8px;margin-top:12px;background:var(--paper-2);border:1px solid var(--line);border-radius:8px;padding:6px 8px 6px 14px;">
+          <span style="font-size:13px;font-weight:600;color:var(--ink);">${UPI_ID}</span>
+          <button type="button" class="btn btn-sm btn-outline" id="copy-upi-btn">Copy</button>
+        </div>
         <p style="font-size:12px;color:var(--muted);margin-top:8px;">Scan with any UPI app and pay the total above, then upload your screenshot below.</p>
       </div>
       <label>Upload payment screenshot</label>
@@ -1799,12 +1833,14 @@ function showStaffLockerModal(floorId, num){
           <div class="modal-actions">
             <button class="btn" id="record-payment" data-id="${occ.id}">Record payment</button>
             <a class="btn btn-wa" href="${lockerWaLink(occ, lst)}" target="_blank" rel="noopener">WhatsApp</a>
+            <button class="btn btn-outline" id="move-locker" data-id="${occ.id}">Move locker</button>
             <button class="btn btn-outline" id="unassign-locker" data-id="${occ.id}">Remove locker</button>
             <button class="btn btn-outline" id="close-modal">Close</button>
           </div>
         </div>
       </div>`;
     document.getElementById('record-payment').onclick = ()=> showPaymentModal(occ.id);
+    document.getElementById('move-locker').onclick = ()=> showSwapModal(occ.id, 'locker');
     document.getElementById('unassign-locker').onclick = async ()=>{
       await apiPost('/api/student-actions', { action: 'locker', lockerAction: 'remove', studentId: occ.id }).catch(()=>{});
       await loadFullStudents(); await loadPublicAvailability();
@@ -2381,6 +2417,16 @@ function attachHandlers(){
     if (otherInput) otherInput.oninput = ()=>{ saveRegDraft(); refreshTotal(); };
 
     document.getElementById('pay-back-btn').onclick = ()=>{ saveRegDraft(); goToRegStep(2); };
+
+    const copyUpiBtn = document.getElementById('copy-upi-btn');
+    if (copyUpiBtn) copyUpiBtn.onclick = async ()=>{
+      try{
+        await navigator.clipboard.writeText(UPI_ID);
+        showToast('UPI ID copied');
+      }catch(e){
+        showToast('Could not copy — UPI ID is ' + UPI_ID);
+      }
+    };
 
     const shotInput = document.getElementById('pay-screenshot');
     const shotPreview = document.getElementById('pay-screenshot-preview');
