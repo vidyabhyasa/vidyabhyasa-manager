@@ -54,15 +54,15 @@ async function doPayment(req, res, session){
     newLockerExpiry = addMonths(base, lockerMonths);
     note += ' — locker +' + lockerMonths + 'mo';
   }
-  note += ' (' + (paymentMethod === 'cash' ? 'Cash' : 'UPI') + ')';
+  const methodValue = paymentMethod === 'cash' ? 'cash' : 'upi';
 
   await sql`update students set expiry_date = ${newExpiry}, locker_expiry_date = ${newLockerExpiry} where id = ${studentId}`;
-  await sql`insert into payments (student_id, date, amount, note) values (${studentId}, ${today}, ${amount}, ${note})`;
+  await sql`insert into payments (student_id, date, amount, note, payment_method) values (${studentId}, ${today}, ${amount}, ${note}, ${methodValue})`;
 
   await logAudit({
     actorId: session.id, actorName: session.label, action: 'record_payment',
     targetType: 'student', targetId: studentId,
-    details: student.name + ' — ₹' + amount + ' (' + note + ')'
+    details: student.name + ' — ₹' + amount + ' (' + note + ', ' + (methodValue === 'cash' ? 'Cash' : 'UPI') + ')'
   });
 
   res.status(200).json({ ok: true });
@@ -227,15 +227,16 @@ async function doResendBill(req, res, session){
 
 async function doEditPayment(req, res, session){
   if (session.role !== 'founder') return res.status(403).json({ error: 'Founder access only' });
-  const { paymentId, amount, note } = req.body || {};
+  const { paymentId, amount, note, paymentMethod } = req.body || {};
   if (!paymentId || amount === undefined) return res.status(400).json({ error: 'paymentId and amount required' });
 
-  await sql`update payments set amount = ${amount}, note = ${note || null} where id = ${paymentId}`;
+  const methodValue = paymentMethod === 'cash' ? 'cash' : 'upi';
+  await sql`update payments set amount = ${amount}, note = ${note || null}, payment_method = ${methodValue} where id = ${paymentId}`;
 
   await logAudit({
     actorId: session.id, actorName: session.label, action: 'edit_payment',
     targetType: 'payment', targetId: paymentId,
-    details: 'Amount set to ₹' + amount + (note ? ' — note: ' + note : '')
+    details: 'Amount set to ₹' + amount + (note ? ' — note: ' + note : '') + ' (' + (methodValue === 'cash' ? 'Cash' : 'UPI') + ')'
   });
 
   res.status(200).json({ ok: true });

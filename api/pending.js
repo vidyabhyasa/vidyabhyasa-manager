@@ -130,10 +130,10 @@ async function doApprove(req, res, session){
     returning id`;
   const studentId = inserted[0].id;
 
-  const methodLabel = p.payment_method === 'cash' ? 'Cash' : 'UPI';
+  const methodValue = p.payment_method === 'cash' ? 'cash' : 'upi';
   await sql`
-    insert into payments (student_id, date, amount, note)
-    values (${studentId}, ${today}, ${p.amount}, ${(p.locker_id ? 'Registration — seat + locker' : 'Registration — seat') + ' (' + methodLabel + ')'})`;
+    insert into payments (student_id, date, amount, note, payment_method)
+    values (${studentId}, ${today}, ${p.amount}, ${p.locker_id ? 'Registration — seat + locker' : 'Registration — seat'}, ${methodValue})`;
 
   await sql`
     update pending_registrations set

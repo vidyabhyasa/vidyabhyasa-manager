@@ -32,7 +32,7 @@ async function doList(req, res){
     from students
     order by expiry_date asc`;
   const payments = await sql`
-    select id, student_id as "studentId", date, amount, note
+    select id, student_id as "studentId", date, amount, note, payment_method as "paymentMethod"
     from payments
     order by date asc`;
 

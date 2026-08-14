@@ -34,6 +34,9 @@ endpoint (database connection, auth helpers, email, config) lives in
 8. Then run `migration-04-cash-payment.sql` — adds a small column
    used to carry a registration's payment method (cash vs UPI) from
    submission through to approval.
+9. Then run `migration-05-payment-method-column.sql` — adds a proper
+   `payment_method` column to the payments table itself, so Reports
+   can cleanly total cash vs UPI without parsing note text.
 
 ## 2. Push this project to GitHub
 

@@ -1368,6 +1368,10 @@ function renderReports(){
       <div class="metric-card"><div class="label">New registrations</div><div class="value">${r.registrations.count}</div></div>
       <div class="metric-card"><div class="label">Avg subscription</div><div class="value">${r.registrations.avgDurationMonths}mo</div></div>
     </div>
+    <div class="metrics">
+      <div class="metric-card"><div class="label">Cash collected</div><div class="value">₹${r.revenue.cash}</div></div>
+      <div class="metric-card"><div class="label">UPI collected</div><div class="value">₹${r.revenue.upi}</div></div>
+    </div>
 
     <h3 style="font-size:15px;margin:20px 0 14px;">Current snapshot</h3>
     <div class="metrics">
@@ -2219,8 +2223,8 @@ function showPaymentHistoryModal(studentId){
   const isFounder = session && session.role === 'founder';
   const rows = (s.payments || []).slice().reverse().map((p,idx)=>`
     <div class="row" data-payment-idx="${idx}">
-      <span>${p.date} — ${p.note||''}</span>
-      <span>₹${p.amount}${isFounder && p.id ? ` <button class="btn btn-sm btn-outline" data-editpay="${p.id}" data-amount="${p.amount}" data-note="${(p.note||'').replace(/"/g,'&quot;')}">Edit</button> <button class="btn btn-sm btn-outline" data-deletepay="${p.id}">Delete</button>` : ''}</span>
+      <span>${p.date} — ${p.note||''} <span class="badge pending" style="text-transform:capitalize;">${p.paymentMethod || 'upi'}</span></span>
+      <span>₹${p.amount}${isFounder && p.id ? ` <button class="btn btn-sm btn-outline" data-editpay="${p.id}" data-amount="${p.amount}" data-note="${(p.note||'').replace(/"/g,'&quot;')}" data-method="${p.paymentMethod||'upi'}">Edit</button> <button class="btn btn-sm btn-outline" data-deletepay="${p.id}">Delete</button>` : ''}</span>
     </div>
   `).join('');
   const modalRoot = document.getElementById('modal-root');
@@ -2240,7 +2244,7 @@ function showPaymentHistoryModal(studentId){
   document.getElementById('close-modal').onclick = closeModal;
   document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
   document.querySelectorAll('[data-editpay]').forEach(el=>{
-    el.onclick = ()=> showEditPaymentModal(studentId, el.dataset.editpay, el.dataset.amount, el.dataset.note);
+    el.onclick = ()=> showEditPaymentModal(studentId, el.dataset.editpay, el.dataset.amount, el.dataset.note, el.dataset.method);
   });
   document.querySelectorAll('[data-deletepay]').forEach(el=>{
     el.onclick = async ()=>{
@@ -2255,7 +2259,7 @@ function showPaymentHistoryModal(studentId){
   });
 }
 
-function showEditPaymentModal(studentId, paymentId, amount, note){
+function showEditPaymentModal(studentId, paymentId, amount, note, method){
   const modalRoot = document.getElementById('modal-root');
   modalRoot.innerHTML = `
     <div class="modal-overlay" id="ov">
@@ -2265,6 +2269,11 @@ function showEditPaymentModal(studentId, paymentId, amount, note){
         <input type="number" id="ep-amount" value="${amount}" min="0">
         <label>Note</label>
         <input type="text" id="ep-note" value="${note}">
+        <label>Payment method</label>
+        <div class="floor-tabs" id="ep-method-tabs">
+          <div class="floor-tab ${method!=='cash'?'active':''}" data-method="upi">UPI</div>
+          <div class="floor-tab ${method==='cash'?'active':''}" data-method="cash">Cash</div>
+        </div>
         <div class="modal-actions">
           <button class="btn" id="ep-save">Save</button>
           <button class="btn btn-outline" id="close-modal">Cancel</button>
@@ -2273,12 +2282,21 @@ function showEditPaymentModal(studentId, paymentId, amount, note){
     </div>`;
   document.getElementById('close-modal').onclick = ()=> showPaymentHistoryModal(studentId);
   document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') showPaymentHistoryModal(studentId); };
+  let editMethod = method === 'cash' ? 'cash' : 'upi';
+  const methodTabs = document.getElementById('ep-method-tabs');
+  methodTabs.querySelectorAll('.floor-tab').forEach(el=>{
+    el.onclick = ()=>{
+      editMethod = el.dataset.method;
+      methodTabs.querySelectorAll('.floor-tab').forEach(t=>t.classList.remove('active'));
+      el.classList.add('active');
+    };
+  });
   document.getElementById('ep-save').onclick = async ()=>{
     const newAmount = Number(document.getElementById('ep-amount').value);
     const newNote = document.getElementById('ep-note').value.trim();
     if (newAmount <= 0){ showToast('Enter a valid amount'); return; }
     try{
-      await apiPost('/api/student-actions', { action: 'editPayment', paymentId, amount: newAmount, note: newNote });
+      await apiPost('/api/student-actions', { action: 'editPayment', paymentId, amount: newAmount, note: newNote, paymentMethod: editMethod });
       await loadFullStudents();
       showPaymentHistoryModal(studentId);
       showToast('Payment updated');

@@ -20,7 +20,7 @@ export default async function handler(req, res){
     const { from, to } = req.query;
     if (!from || !to) return res.status(400).json({ error: 'from and to dates required' });
 
-    const payments = await sql`select amount, note, date from payments where date >= ${from} and date <= ${to}`;
+    const payments = await sql`select amount, note, date, payment_method as "paymentMethod" from payments where date >= ${from} and date <= ${to}`;
     const newRegs = await sql`
       select floor,
              duration_months as "durationMonths",
@@ -33,6 +33,7 @@ export default async function handler(req, res){
       from students`;
 
     let totalRevenue = 0, registrationRevenue = 0, renewalRevenue = 0, lockerRevenue = 0;
+    let cashRevenue = 0, upiRevenue = 0;
     payments.forEach(p=>{
       const amt = Number(p.amount);
       totalRevenue += amt;
@@ -40,6 +41,8 @@ export default async function handler(req, res){
       if (note.startsWith('Registration')) registrationRevenue += amt;
       else if (note.startsWith('Renewal')) renewalRevenue += amt;
       else if (note.startsWith('Locker assigned')) lockerRevenue += amt;
+      if (p.paymentMethod === 'cash') cashRevenue += amt;
+      else upiRevenue += amt;
     });
 
     const newRegistrations = newRegs.length;
@@ -83,6 +86,8 @@ export default async function handler(req, res){
         registration: registrationRevenue,
         renewal: renewalRevenue,
         locker: lockerRevenue,
+        cash: cashRevenue,
+        upi: upiRevenue,
         paymentCount: payments.length,
         avgPayment: payments.length ? Math.round(totalRevenue / payments.length) : 0
       },
