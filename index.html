@@ -1842,9 +1842,13 @@ function showStaffLockerModal(floorId, num){
     document.getElementById('record-payment').onclick = ()=> showPaymentModal(occ.id);
     document.getElementById('move-locker').onclick = ()=> showSwapModal(occ.id, 'locker');
     document.getElementById('unassign-locker').onclick = async ()=>{
-      await apiPost('/api/student-actions', { action: 'locker', lockerAction: 'remove', studentId: occ.id }).catch(()=>{});
-      await loadFullStudents(); await loadPublicAvailability();
-      closeModal(); render(); showToast('Locker removed from ' + occ.name);
+      try{
+        await apiPost('/api/student-actions', { action: 'locker', lockerAction: 'remove', studentId: occ.id });
+        await loadFullStudents(); await loadPublicAvailability();
+        closeModal(); render(); showToast('Locker removed from ' + occ.name);
+      }catch(err){
+        showToast(err.message || 'Failed to remove locker');
+      }
     };
   }
   document.getElementById('close-modal').onclick = closeModal;
@@ -1855,23 +1859,38 @@ function showPaymentModal(studentId){
   const s = students.find(x=>x.id===studentId);
   if (!s) return;
   const hasLocker = !!s.lockerId;
+  const monthOptions = (id)=>`<select id="${id}">${Array.from({length:9},(_,i)=>i+4).map(m=>`<option value="${m}">${m} months</option>`).join('')}</select>`;
   const modalRoot = document.getElementById('modal-root');
   modalRoot.innerHTML = `
     <div class="modal-overlay" id="ov">
       <div class="modal">
         <h3>Record payment</h3>
         <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">${s.name} — seat ${s.seatId}${hasLocker ? ' · locker ' + s.lockerId : ''}</p>
-        <label>Extend seat by</label>
-        <select id="pm-seat-months">
-          <option value="0">No change</option>
-          ${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}">${m} month${m>1?'s':''}</option>`).join('')}
-        </select>
+
+        <label>Extend seat subscription by</label>
+        <div class="floor-tabs" id="pm-seat-quick">
+          <div class="floor-tab active" data-months="1">1 month</div>
+          <div class="floor-tab" data-months="2">2 months</div>
+          <div class="floor-tab" data-months="3">3 months</div>
+          <div class="floor-tab" data-months="other">Other</div>
+        </div>
+        <div id="pm-seat-other-wrap" style="display:none;">${monthOptions('pm-seat-months-other')}</div>
+
         ${hasLocker ? `
-        <label>Extend locker by</label>
-        <select id="pm-locker-months">
-          <option value="0">No change</option>
-          ${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}">${m} month${m>1?'s':''}</option>`).join('')}
-        </select>` : ''}
+        <label>Extend locker subscription by</label>
+        <div class="floor-tabs" id="pm-locker-quick">
+          <div class="floor-tab active" data-months="1">1 month</div>
+          <div class="floor-tab" data-months="2">2 months</div>
+          <div class="floor-tab" data-months="3">3 months</div>
+          <div class="floor-tab" data-months="other">Other</div>
+        </div>
+        <div id="pm-locker-other-wrap" style="display:none;">${monthOptions('pm-locker-months-other')}</div>` : ''}
+
+        <label style="display:flex;align-items:flex-start;gap:8px;font-weight:400;margin:4px 0 16px;">
+          <input type="checkbox" id="pm-no-extend" style="width:auto;margin-top:3px;">
+          <span>Just record this payment — don't extend the due date</span>
+        </label>
+
         <label>Amount paid</label>
         <select id="pm-amount">${paymentAmountOptionsHTML()}</select>
         <div id="pm-amount-other-wrap" style="display:none;">
@@ -1884,21 +1903,64 @@ function showPaymentModal(studentId){
         </div>
       </div>
     </div>`;
+
   const amountSel = document.getElementById('pm-amount');
   const otherWrap = document.getElementById('pm-amount-other-wrap');
   amountSel.onchange = ()=>{ otherWrap.style.display = amountSel.value==='other'?'block':'none'; };
   document.getElementById('close-modal').onclick = closeModal;
   document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+
+  function wireQuickSelect(groupId, otherWrapId){
+    const group = document.getElementById(groupId);
+    if (!group) return;
+    group.querySelectorAll('.floor-tab').forEach(el=>{
+      el.onclick = ()=>{
+        group.querySelectorAll('.floor-tab').forEach(t=>t.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById(otherWrapId).style.display = el.dataset.months === 'other' ? 'block' : 'none';
+      };
+    });
+  }
+  wireQuickSelect('pm-seat-quick', 'pm-seat-other-wrap');
+  if (hasLocker) wireQuickSelect('pm-locker-quick', 'pm-locker-other-wrap');
+
+  const noExtendCb = document.getElementById('pm-no-extend');
+  noExtendCb.onchange = ()=>{
+    const disabled = noExtendCb.checked;
+    document.querySelectorAll('#pm-seat-quick .floor-tab, #pm-locker-quick .floor-tab').forEach(el=>{
+      el.style.pointerEvents = disabled ? 'none' : '';
+      el.style.opacity = disabled ? '0.4' : '';
+    });
+  };
+
+  function monthsFrom(groupId, otherSelectId){
+    const group = document.getElementById(groupId);
+    if (!group) return 0;
+    const active = group.querySelector('.floor-tab.active');
+    if (!active) return 0;
+    if (active.dataset.months === 'other') return Number(document.getElementById(otherSelectId).value);
+    return Number(active.dataset.months);
+  }
+
   document.getElementById('pm-submit').onclick = async ()=>{
-    const seatMonths = Number(document.getElementById('pm-seat-months').value);
-    const lockerMonthsEl = document.getElementById('pm-locker-months');
-    const lockerMonths = hasLocker && lockerMonthsEl ? Number(lockerMonthsEl.value) : 0;
     const amountRaw = amountSel.value === 'other' ? document.getElementById('pm-amount-other').value : amountSel.value;
     const amount = Number(amountRaw || 0);
     if (amount <= 0){ showToast('Enter a valid amount'); return; }
-    await apiPost('/api/student-actions', { action: 'payment', studentId: s.id, seatMonths, lockerMonths, amount }).catch(()=>{});
-    await loadFullStudents();
-    closeModal(); render(); showToast('Payment recorded for ' + s.name);
+
+    const seatMonths = noExtendCb.checked ? 0 : monthsFrom('pm-seat-quick', 'pm-seat-months-other');
+    const lockerMonths = (hasLocker && !noExtendCb.checked) ? monthsFrom('pm-locker-quick', 'pm-locker-months-other') : 0;
+
+    const submitBtn = document.getElementById('pm-submit');
+    submitBtn.disabled = true; submitBtn.textContent = 'Saving…';
+    try{
+      await apiPost('/api/student-actions', { action: 'payment', studentId: s.id, seatMonths, lockerMonths, amount });
+      await loadFullStudents();
+      closeModal(); render();
+      showToast(seatMonths > 0 ? 'Payment recorded — extended by ' + seatMonths + ' month(s)' : 'Payment recorded');
+    }catch(err){
+      showToast(err.message || 'Failed to record payment');
+      submitBtn.disabled = false; submitBtn.textContent = 'Save payment';
+    }
   };
 }
 
