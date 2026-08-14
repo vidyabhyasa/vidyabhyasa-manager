@@ -83,7 +83,7 @@ async function doStartCharge(req, res, session){
     insert into payments (student_id, date, amount, note, payment_method, charge_id)
     values (${studentId}, ${today}, ${paidNow}, ${note}, ${methodValue}, ${chargeId})`;
 
-  if (isFullyPaid) await applyChargeExtension(student, resourceType, months);
+  if (isFullyPaid && months > 0) await applyChargeExtension(student, resourceType, months);
 
   await logAudit({
     actorId: session.id, actorName: session.label, action: 'record_payment',
@@ -125,7 +125,7 @@ async function doPayCharge(req, res, session){
     insert into payments (student_id, date, amount, note, payment_method, charge_id)
     values (${student.id}, ${today}, ${paidNow}, ${note}, ${methodValue}, ${chargeId})`;
 
-  if (isFullyPaid) await applyChargeExtension(student, charge.resource_type, charge.months);
+  if (isFullyPaid && charge.months > 0) await applyChargeExtension(student, charge.resource_type, charge.months);
 
   await logAudit({
     actorId: session.id, actorName: session.label, action: 'record_payment',

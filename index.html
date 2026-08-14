@@ -1201,7 +1201,8 @@ function renderRegisterPayment(){
         <input type="number" id="pay-amount-other" min="1" value="${initialOther}">
       </div>
       ${draft['f-locker'] ? `<p style="font-size:13px;color:var(--muted);margin:-8px 0 14px;">+ Locker deposit ₹${LOCKER_DEPOSIT} + ₹${LOCKER_MONTHLY} × ${lockerMonths} month(s) = ₹${lockerCharge}</p>` : ''}
-      <div style="font-weight:700;font-size:17px;margin-bottom:16px;padding-top:8px;border-top:1px solid var(--line);">Total to pay: ₹<span id="pay-total-display">${total}</span></div>
+      <div style="font-weight:700;font-size:17px;margin-bottom:8px;padding-top:8px;border-top:1px solid var(--line);">Total to pay: ₹<span id="pay-total-display">${total}</span></div>
+      <p style="font-size:12px;color:var(--muted);margin:0 0 16px;">Can only pay part of this now? Enter what you're paying above — staff can settle the remaining balance with you when reviewing your request.</p>
 
       <div id="upi-pay-block" style="text-align:center;margin:16px 0;display:${payMethod==='cash'?'none':'block'};">
         <img id="upi-qr-img" src="${buildUpiQrUrl(total || 1, 'Seat ' + seatId)}" style="width:220px;height:220px;border:1px solid var(--line);border-radius:8px;">
@@ -1535,10 +1536,12 @@ function renderPending(){
             <p style="font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin-bottom:8px;font-weight:600;">Subscription & payment</p>
             <div class="row"><span>Seat term</span><span>${p.durationMonths} month${p.durationMonths>1?'s':''}</span></div>
             ${p.lockerId ? `<div class="row"><span>Locker term</span><span>${p.lockerMonths} month${p.lockerMonths>1?'s':''}</span></div>` : ''}
+            <div class="row"><span>Amount due</span><span>₹${p.amountDue}</span></div>
             <div class="row"><span>Amount claimed</span><span style="font-weight:600;">₹${p.amount}</span></div>
             <div class="row"><span>Payment method</span><span style="font-weight:600;text-transform:capitalize;">${p.paymentMethod === 'cash' ? 'Cash' : 'UPI'}</span></div>
           </div>
         </div>
+        ${p.amount < p.amountDue ? `<div class="notice" style="margin-top:16px;background:var(--warn-bg);border-color:var(--warn);color:var(--warn-text);">Partial payment — ₹${p.amountDue - p.amount} short of the ₹${p.amountDue} due. Approving will still grant the full requested term, with the shortfall tracked as an open balance payable later.</div>` : ''}
         <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
           ${p.hasIdPhoto ? `<button class="btn btn-outline btn-sm" data-fetchphoto="${p.id}">View ID photo</button>` : ''}
           ${p.hasPaymentScreenshot ? `<button class="btn btn-outline btn-sm" data-fetchpayment="${p.id}">View payment screenshot</button>` : ''}
@@ -1935,7 +1938,7 @@ function showPaymentModal(studentId){
       return `
         <div style="border:1px solid var(--warn);background:var(--warn-bg);border-radius:10px;padding:12px 14px;margin-bottom:16px;">
           <p style="font-size:13px;font-weight:600;color:var(--warn-text);margin-bottom:4px;">${label} — open balance</p>
-          <p style="font-size:13px;color:var(--warn-text);margin-bottom:10px;">${charge.months} month renewal — ₹${charge.amountPaid} of ₹${charge.amountDue} paid, <strong>₹${remaining} remaining</strong></p>
+          <p style="font-size:13px;color:var(--warn-text);margin-bottom:10px;">${charge.months > 0 ? charge.months + ' month renewal' : 'Outstanding balance from registration'} — ₹${charge.amountPaid} of ₹${charge.amountDue} paid, <strong>₹${remaining} remaining</strong></p>
           <label>Add payment (₹)</label>
           <input type="number" id="${kind}-pay-amount" min="1" max="${remaining}" value="${remaining}" data-mode="charge" data-charge-id="${charge.id}">
           <button type="button" class="btn btn-sm btn-outline" id="${kind}-cancel-charge" data-charge-id="${charge.id}">Cancel this charge</button>
@@ -2865,7 +2868,9 @@ function attachHandlers(){
           await loadPendingList(); await loadPublicAvailability();
           if (session) await loadFullStudents();
           render();
-          showToast(result.emailSent ? 'Approved — bill emailed to student' : 'Approved (email not sent: ' + (result.emailReason||'not configured') + ')');
+          const emailMsg = result.emailSent ? 'bill emailed' : 'email not sent: ' + (result.emailReason||'not configured');
+          const balanceMsg = result.shortfall > 0 ? ' — ₹' + result.shortfall + ' left as open balance' : '';
+          showToast('Approved (' + emailMsg + ')' + balanceMsg);
         }catch(err){
           showToast(err.message || 'Failed to approve request');
           el.disabled = false; el.textContent = 'Approve';

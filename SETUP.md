@@ -237,6 +237,18 @@ There's also a **"Log a one-off payment instead"** link in the same
 modal, for anything that isn't a renewal at all (a late fee, a
 replacement ID card charge, etc.) — it never touches a due date.
 
+**Partial payment also works at initial registration approval.** The
+Pending Approvals card shows both the amount due and the amount
+claimed — if a student paid less than what's due, approving still
+grants the full requested seat/locker term immediately (staff's call
+to trust them for the balance), and the shortfall becomes an open
+balance-only charge, visible and payable through the same Record
+Payment flow as any renewal balance. No schema change was needed for
+this — it reuses the same `charges` table with `months: 0`, which
+means paying it off just clears the balance without granting any
+further extension (there's nothing left to extend — they already
+have the seat they asked for).
+
 Reports now show a founder-visible **Outstanding balance** total
 across all open charges, and payment history shows the method per
 line with founders able to correct it after the fact.

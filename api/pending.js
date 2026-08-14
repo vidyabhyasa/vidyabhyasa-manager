@@ -2,6 +2,7 @@ import { sql, addMonths, todayISO, toDateStr, toImageBuffer } from '../lib/db.js
 import { requireStaff } from '../lib/auth.js';
 import { sendEmail, billEmailHTML } from '../lib/email.js';
 import { logAudit } from '../lib/audit.js';
+import { presetForMonths, LOCKER_MONTHLY, LOCKER_DEPOSIT } from '../lib/layout.js';
 
 const EDITABLE = {
   name: 'name', phone: 'phone', email: 'email', examPrep: 'exam_prep',
@@ -51,7 +52,12 @@ async function doList(req, res){
     from pending_registrations
     where status = 'pending'
     order by created_at asc`;
-  res.status(200).json({ pending: rows });
+  const withDue = rows.map(r => {
+    const seatDue = presetForMonths(r.durationMonths);
+    const lockerDue = r.lockerId ? (LOCKER_DEPOSIT + LOCKER_MONTHLY * Number(r.lockerMonths)) : 0;
+    return { ...r, amountDue: seatDue + lockerDue };
+  });
+  res.status(200).json({ pending: withDue });
 }
 
 async function doPhoto(req, res){
@@ -135,6 +141,22 @@ async function doApprove(req, res, session){
     insert into payments (student_id, date, amount, note, payment_method)
     values (${studentId}, ${today}, ${p.amount}, ${p.locker_id ? 'Registration — seat + locker' : 'Registration — seat'}, ${methodValue})`;
 
+  // Grant the full requested duration immediately regardless of how
+  // much was actually paid — if it's less than what's due, track the
+  // shortfall as an open balance rather than shortening their seat
+  // time. months: 0 means paying this off later just clears the
+  // balance, it never extends anything further (there's nothing left
+  // to extend — they already have the seat they asked for).
+  const seatDue = presetForMonths(p.duration_months);
+  const lockerDue = p.locker_id ? (LOCKER_DEPOSIT + LOCKER_MONTHLY * Number(p.locker_months)) : 0;
+  const totalDue = seatDue + lockerDue;
+  const shortfall = totalDue - Number(p.amount);
+  if (shortfall > 0){
+    await sql`
+      insert into charges (student_id, resource_type, months, amount_due, amount_paid, status, created_by)
+      values (${studentId}, 'seat', 0, ${shortfall}, 0, 'open', ${session.id})`;
+  }
+
   await sql`
     update pending_registrations set
       status = 'approved', resolved_at = now(), resolved_by = ${session.id},
@@ -158,10 +180,11 @@ async function doApprove(req, res, session){
     actorId: session.id, actorName: session.label, action: 'approve_pending',
     targetType: 'student', targetId: studentId,
     details: p.name + ' approved — seat ' + p.seat_id + (p.locker_id ? ', locker ' + p.locker_id : '') +
-      ' (bill ' + (emailResult.sent ? 'emailed' : 'not emailed: ' + emailResult.reason) + ')'
+      ' (bill ' + (emailResult.sent ? 'emailed' : 'not emailed: ' + emailResult.reason) + ')' +
+      (shortfall > 0 ? ' — ₹' + shortfall + ' left as open balance' : '')
   });
 
-  res.status(200).json({ ok: true, studentId, emailSent: emailResult.sent, emailReason: emailResult.reason });
+  res.status(200).json({ ok: true, studentId, emailSent: emailResult.sent, emailReason: emailResult.reason, shortfall: Math.max(0, shortfall) });
 }
 
 async function doReject(req, res, session){
