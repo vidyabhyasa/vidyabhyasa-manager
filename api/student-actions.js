@@ -30,7 +30,7 @@ export default async function handler(req, res){
 }
 
 async function doPayment(req, res, session){
-  const { studentId, seatMonths, lockerMonths, amount } = req.body || {};
+  const { studentId, seatMonths, lockerMonths, amount, paymentMethod } = req.body || {};
   if (!studentId || !amount) return res.status(400).json({ error: 'studentId and amount required' });
 
   const rows = await sql`select * from students where id = ${studentId}`;
@@ -54,6 +54,7 @@ async function doPayment(req, res, session){
     newLockerExpiry = addMonths(base, lockerMonths);
     note += ' — locker +' + lockerMonths + 'mo';
   }
+  note += ' (' + (paymentMethod === 'cash' ? 'Cash' : 'UPI') + ')';
 
   await sql`update students set expiry_date = ${newExpiry}, locker_expiry_date = ${newLockerExpiry} where id = ${studentId}`;
   await sql`insert into payments (student_id, date, amount, note) values (${studentId}, ${today}, ${amount}, ${note})`;

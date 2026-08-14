@@ -1146,29 +1146,48 @@ function computeLockerCharge(draft){
   return LOCKER_DEPOSIT + LOCKER_MONTHLY * months;
 }
 
+// Seat pricing follows a consistent scale: 1mo=1000, 2mo=1900,
+// 3mo=2800 — i.e. ₹100 base + ₹900/month. Extrapolated for any
+// month count so longer subscriptions still get a sensible default
+// (always editable via "Other" if a different rate applies).
+function presetForMonths(months){
+  return 100 + 900 * Number(months);
+}
+
 function renderRegisterPayment(){
   const draft = loadRegDraft() || {};
   const seatId = draft['f-seat'] || '';
-  const initialAmount = draft['pay-amount'] || PAYMENT_PRESETS[0];
-  const seatBase = initialAmount === 'other' ? Number(draft['pay-amount-other']||0) : Number(initialAmount);
+  const seatMonths = Number(draft['f-months'] || 1);
+  const suggestedSeatAmount = presetForMonths(seatMonths);
+  const initialAmount = draft['pay-amount'] || (PAYMENT_PRESETS.includes(suggestedSeatAmount) ? String(suggestedSeatAmount) : 'other');
+  const initialOther = draft['pay-amount-other'] || (!PAYMENT_PRESETS.includes(suggestedSeatAmount) ? suggestedSeatAmount : '');
+  const seatBase = initialAmount === 'other' ? Number(initialOther||0) : Number(initialAmount);
   const lockerCharge = computeLockerCharge(draft);
   const total = seatBase + lockerCharge;
   const lockerMonths = Number(draft['f-locker-months'] || 1);
+  const payMethod = draft['pay-method'] || 'upi';
   return `
     <div class="page-head">
       <h2>Payment</h2>
       ${stepProgress(3)}
     </div>
     <div class="card" style="max-width:420px;">
+      <label>Payment method</label>
+      <div class="floor-tabs" id="pay-method-tabs">
+        <div class="floor-tab ${payMethod==='upi'?'active':''}" data-method="upi">UPI</div>
+        <div class="floor-tab ${payMethod==='cash'?'active':''}" data-method="cash">Cash</div>
+      </div>
+
       <label>Seat amount</label>
-      <select id="pay-amount">${paymentAmountOptionsHTML(draft['pay-amount'])}</select>
-      <div id="pay-amount-other-wrap" style="display:none;">
+      <select id="pay-amount">${paymentAmountOptionsHTML(initialAmount)}</select>
+      <div id="pay-amount-other-wrap" style="display:${initialAmount==='other'?'block':'none'};">
         <label>Enter amount (₹)</label>
-        <input type="number" id="pay-amount-other" min="1" value="${draft['pay-amount-other']||''}">
+        <input type="number" id="pay-amount-other" min="1" value="${initialOther}">
       </div>
       ${draft['f-locker'] ? `<p style="font-size:13px;color:var(--muted);margin:-8px 0 14px;">+ Locker deposit ₹${LOCKER_DEPOSIT} + ₹${LOCKER_MONTHLY} × ${lockerMonths} month(s) = ₹${lockerCharge}</p>` : ''}
       <div style="font-weight:700;font-size:17px;margin-bottom:16px;padding-top:8px;border-top:1px solid var(--line);">Total to pay: ₹<span id="pay-total-display">${total}</span></div>
-      <div style="text-align:center;margin:16px 0;">
+
+      <div id="upi-pay-block" style="text-align:center;margin:16px 0;display:${payMethod==='cash'?'none':'block'};">
         <img id="upi-qr-img" src="${buildUpiQrUrl(total || 1, 'Seat ' + seatId)}" style="width:220px;height:220px;border:1px solid var(--line);border-radius:8px;">
         <div style="display:inline-flex;align-items:center;gap:8px;margin-top:12px;background:var(--paper-2);border:1px solid var(--line);border-radius:8px;padding:6px 8px 6px 14px;">
           <span style="font-size:13px;font-weight:600;color:var(--ink);">${UPI_ID}</span>
@@ -1176,7 +1195,11 @@ function renderRegisterPayment(){
         </div>
         <p style="font-size:12px;color:var(--muted);margin-top:8px;">Scan with any UPI app and pay the total above, then upload your screenshot below.</p>
       </div>
-      <label>Upload payment screenshot</label>
+      <div id="cash-pay-block" style="margin:16px 0;display:${payMethod==='cash'?'block':'none'};">
+        <div class="notice" style="margin-bottom:0;">Hand ₹<span id="cash-total-display">${total}</span> in cash to the staff member, then submit — they'll confirm the amount when reviewing your request.</div>
+      </div>
+
+      <label id="screenshot-label">Upload payment screenshot${payMethod==='cash'?' (optional for cash)':''}</label>
       <input type="file" id="pay-screenshot" accept="image/*">
       <div id="pay-screenshot-preview" style="display:none;margin-top:-8px;margin-bottom:16px;"></div>
       <small class="field-error" id="err-screenshot"></small>
@@ -1485,11 +1508,12 @@ function renderPending(){
             <div class="row"><span>Seat term</span><span>${p.durationMonths} month${p.durationMonths>1?'s':''}</span></div>
             ${p.lockerId ? `<div class="row"><span>Locker term</span><span>${p.lockerMonths} month${p.lockerMonths>1?'s':''}</span></div>` : ''}
             <div class="row"><span>Amount claimed</span><span style="font-weight:600;">₹${p.amount}</span></div>
+            <div class="row"><span>Payment method</span><span style="font-weight:600;text-transform:capitalize;">${p.paymentMethod === 'cash' ? 'Cash' : 'UPI'}</span></div>
           </div>
         </div>
         <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
           ${p.hasIdPhoto ? `<button class="btn btn-outline btn-sm" data-fetchphoto="${p.id}">View ID photo</button>` : ''}
-          <button class="btn btn-outline btn-sm" data-fetchpayment="${p.id}">View payment screenshot</button>
+          ${p.hasPaymentScreenshot ? `<button class="btn btn-outline btn-sm" data-fetchpayment="${p.id}">View payment screenshot</button>` : ''}
           <button class="btn btn-outline btn-sm" data-editpending="${p.id}">Edit details</button>
         </div>
         <div id="photo-preview-${p.id}" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;"></div>
@@ -1884,12 +1908,19 @@ function showPaymentModal(studentId){
           <div class="floor-tab" data-months="3">3 months</div>
           <div class="floor-tab" data-months="other">Other</div>
         </div>
-        <div id="pm-locker-other-wrap" style="display:none;">${monthOptions('pm-locker-months-other')}</div>` : ''}
+        <div id="pm-locker-other-wrap" style="display:none;">${monthOptions('pm-locker-months-other')}</div>
+        <p style="font-size:12px;color:var(--muted);margin:-8px 0 14px;">No fresh deposit — the ₹${LOCKER_DEPOSIT} deposit was already collected when the locker was first assigned.</p>` : ''}
 
         <label style="display:flex;align-items:flex-start;gap:8px;font-weight:400;margin:4px 0 16px;">
           <input type="checkbox" id="pm-no-extend" style="width:auto;margin-top:3px;">
           <span>Just record this payment — don't extend the due date</span>
         </label>
+
+        <label>Payment method</label>
+        <div class="floor-tabs" id="pm-method-tabs">
+          <div class="floor-tab active" data-method="upi">UPI</div>
+          <div class="floor-tab" data-method="cash">Cash</div>
+        </div>
 
         <label>Amount paid</label>
         <select id="pm-amount">${paymentAmountOptionsHTML()}</select>
@@ -1910,28 +1941,15 @@ function showPaymentModal(studentId){
   document.getElementById('close-modal').onclick = closeModal;
   document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
 
-  function wireQuickSelect(groupId, otherWrapId){
-    const group = document.getElementById(groupId);
-    if (!group) return;
-    group.querySelectorAll('.floor-tab').forEach(el=>{
-      el.onclick = ()=>{
-        group.querySelectorAll('.floor-tab').forEach(t=>t.classList.remove('active'));
-        el.classList.add('active');
-        document.getElementById(otherWrapId).style.display = el.dataset.months === 'other' ? 'block' : 'none';
-      };
-    });
-  }
-  wireQuickSelect('pm-seat-quick', 'pm-seat-other-wrap');
-  if (hasLocker) wireQuickSelect('pm-locker-quick', 'pm-locker-other-wrap');
-
-  const noExtendCb = document.getElementById('pm-no-extend');
-  noExtendCb.onchange = ()=>{
-    const disabled = noExtendCb.checked;
-    document.querySelectorAll('#pm-seat-quick .floor-tab, #pm-locker-quick .floor-tab').forEach(el=>{
-      el.style.pointerEvents = disabled ? 'none' : '';
-      el.style.opacity = disabled ? '0.4' : '';
-    });
-  };
+  const methodTabs = document.getElementById('pm-method-tabs');
+  let payMethod = 'upi';
+  methodTabs.querySelectorAll('.floor-tab').forEach(el=>{
+    el.onclick = ()=>{
+      payMethod = el.dataset.method;
+      methodTabs.querySelectorAll('.floor-tab').forEach(t=>t.classList.remove('active'));
+      el.classList.add('active');
+    };
+  });
 
   function monthsFrom(groupId, otherSelectId){
     const group = document.getElementById(groupId);
@@ -1941,6 +1959,53 @@ function showPaymentModal(studentId){
     if (active.dataset.months === 'other') return Number(document.getElementById(otherSelectId).value);
     return Number(active.dataset.months);
   }
+
+  function refreshAmountSuggestion(){
+    const seatMonths = noExtendCb.checked ? 0 : monthsFrom('pm-seat-quick', 'pm-seat-months-other');
+    const lockerMonths = (hasLocker && !noExtendCb.checked) ? monthsFrom('pm-locker-quick', 'pm-locker-months-other') : 0;
+    const suggested = (seatMonths > 0 ? presetForMonths(seatMonths) : 0) + (lockerMonths > 0 ? LOCKER_MONTHLY * lockerMonths : 0);
+    if (suggested <= 0) return;
+    if (PAYMENT_PRESETS.includes(suggested)){
+      amountSel.value = String(suggested);
+      otherWrap.style.display = 'none';
+    } else {
+      amountSel.value = 'other';
+      otherWrap.style.display = 'block';
+      document.getElementById('pm-amount-other').value = suggested;
+    }
+  }
+
+  function wireQuickSelect(groupId, otherWrapId){
+    const group = document.getElementById(groupId);
+    if (!group) return;
+    group.querySelectorAll('.floor-tab').forEach(el=>{
+      el.onclick = ()=>{
+        group.querySelectorAll('.floor-tab').forEach(t=>t.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById(otherWrapId).style.display = el.dataset.months === 'other' ? 'block' : 'none';
+        refreshAmountSuggestion();
+      };
+    });
+  }
+  wireQuickSelect('pm-seat-quick', 'pm-seat-other-wrap');
+  if (hasLocker) wireQuickSelect('pm-locker-quick', 'pm-locker-other-wrap');
+
+  const seatOtherSel = document.getElementById('pm-seat-months-other');
+  if (seatOtherSel) seatOtherSel.onchange = refreshAmountSuggestion;
+  const lockerOtherSel = document.getElementById('pm-locker-months-other');
+  if (lockerOtherSel) lockerOtherSel.onchange = refreshAmountSuggestion;
+
+  const noExtendCb = document.getElementById('pm-no-extend');
+  noExtendCb.onchange = ()=>{
+    const disabled = noExtendCb.checked;
+    document.querySelectorAll('#pm-seat-quick .floor-tab, #pm-locker-quick .floor-tab').forEach(el=>{
+      el.style.pointerEvents = disabled ? 'none' : '';
+      el.style.opacity = disabled ? '0.4' : '';
+    });
+    if (!disabled) refreshAmountSuggestion();
+  };
+
+  refreshAmountSuggestion();
 
   document.getElementById('pm-submit').onclick = async ()=>{
     const amountRaw = amountSel.value === 'other' ? document.getElementById('pm-amount-other').value : amountSel.value;
@@ -1953,7 +2018,7 @@ function showPaymentModal(studentId){
     const submitBtn = document.getElementById('pm-submit');
     submitBtn.disabled = true; submitBtn.textContent = 'Saving…';
     try{
-      await apiPost('/api/student-actions', { action: 'payment', studentId: s.id, seatMonths, lockerMonths, amount });
+      await apiPost('/api/student-actions', { action: 'payment', studentId: s.id, seatMonths, lockerMonths, amount, paymentMethod: payMethod });
       await loadFullStudents();
       closeModal(); render();
       showToast(seatMonths > 0 ? 'Payment recorded — extended by ' + seatMonths + ' month(s)' : 'Payment recorded');
@@ -2472,11 +2537,32 @@ function attachHandlers(){
       const total = currentTotal();
       const totalEl = document.getElementById('pay-total-display');
       if (totalEl) totalEl.textContent = total;
-      document.getElementById('upi-qr-img').src = buildUpiQrUrl(total || 1, 'Seat ' + seatId);
+      const cashTotalEl = document.getElementById('cash-total-display');
+      if (cashTotalEl) cashTotalEl.textContent = total;
+      const qrImg = document.getElementById('upi-qr-img');
+      if (qrImg) qrImg.src = buildUpiQrUrl(total || 1, 'Seat ' + seatId);
     };
     amountSel.onchange = ()=>{ otherWrap.style.display = amountSel.value === 'other' ? 'block' : 'none'; saveRegDraft(); refreshTotal(); };
     const otherInput = document.getElementById('pay-amount-other');
     if (otherInput) otherInput.oninput = ()=>{ saveRegDraft(); refreshTotal(); };
+
+    let payMethod = draft['pay-method'] || 'upi';
+    const methodTabs = document.getElementById('pay-method-tabs');
+    const screenshotLabel = document.getElementById('screenshot-label');
+    methodTabs.querySelectorAll('.floor-tab').forEach(el=>{
+      el.onclick = ()=>{
+        payMethod = el.dataset.method;
+        methodTabs.querySelectorAll('.floor-tab').forEach(t=>t.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById('upi-pay-block').style.display = payMethod === 'cash' ? 'none' : 'block';
+        document.getElementById('cash-pay-block').style.display = payMethod === 'cash' ? 'block' : 'none';
+        screenshotLabel.textContent = 'Upload payment screenshot' + (payMethod === 'cash' ? ' (optional for cash)' : '');
+        const existing = loadRegDraft() || {};
+        existing['pay-method'] = payMethod;
+        try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
+        refreshTotal();
+      };
+    });
 
     document.getElementById('pay-back-btn').onclick = ()=>{ saveRegDraft(); goToRegStep(2); };
 
@@ -2506,7 +2592,10 @@ function attachHandlers(){
     document.getElementById('pay-submit-btn').onclick = async ()=>{
       clearFieldError('pay-screenshot','err-screenshot');
       const screenshotData = shotInput.dataset.resized;
-      if (!screenshotData){ showFieldError('pay-screenshot','err-screenshot','Upload a screenshot of your payment before submitting.'); return; }
+      if (payMethod === 'upi' && !screenshotData){
+        showFieldError('pay-screenshot','err-screenshot','Upload a screenshot of your payment before submitting.');
+        return;
+      }
 
       const submitBtn = document.getElementById('pay-submit-btn');
       submitBtn.disabled = true; submitBtn.textContent = 'Submitting…';
@@ -2528,9 +2617,10 @@ function attachHandlers(){
         durationMonths: Number(finalDraft['f-months']),
         seatId: finalDraft['f-seat'],
         amount,
-        rulesAcceptedAt: new Date().toISOString(),
-        paymentScreenshotBase64: screenshotData
+        paymentMethod: payMethod,
+        rulesAcceptedAt: new Date().toISOString()
       };
+      if (screenshotData) payload.paymentScreenshotBase64 = screenshotData;
       if (finalDraft['f-locker']){
         payload.lockerId = finalDraft['f-locker'];
         payload.lockerMonths = Number(finalDraft['f-locker-months']);

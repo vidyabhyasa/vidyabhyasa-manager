@@ -31,6 +31,9 @@ endpoint (database connection, auth helpers, email, config) lives in
    tracks seats/lockers needing a physical clean after auto-removal.
 7. Then run `migration-03-audit-log.sql` — adds the audit log table
    used by the founder's Audit log page.
+8. Then run `migration-04-cash-payment.sql` — adds a small column
+   used to carry a registration's payment method (cash vs UPI) from
+   submission through to approval.
 
 ## 2. Push this project to GitHub
 

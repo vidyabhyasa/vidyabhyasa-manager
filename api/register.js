@@ -29,19 +29,22 @@ export default async function handler(req, res){
 
     const idPhotoBuffer = b.photoBase64 ? Buffer.from(b.photoBase64.split(',').pop(), 'base64') : null;
     const paymentShotBuffer = b.paymentScreenshotBase64 ? Buffer.from(b.paymentScreenshotBase64.split(',').pop(), 'base64') : null;
-    if (!paymentShotBuffer) return res.status(400).json({ error: 'Payment screenshot is required' });
+    const paymentMethod = b.paymentMethod === 'cash' ? 'cash' : 'upi';
+    if (paymentMethod === 'upi' && !paymentShotBuffer) return res.status(400).json({ error: 'Payment screenshot is required for UPI payments' });
 
     const rows = await sql`
       insert into pending_registrations (
         name, phone, email, exam_prep, join_date, duration_months,
         seat_id, floor, locker_id, locker_floor, locker_months, amount,
-        id_photo, id_photo_type, payment_screenshot, payment_screenshot_type, rules_accepted_at
+        id_photo, id_photo_type, payment_screenshot, payment_screenshot_type, rules_accepted_at,
+        payment_method
       ) values (
         ${b.name}, ${b.phone}, ${b.email || null}, ${b.examPrep}, ${b.joinDate}, ${b.durationMonths},
         ${b.seatId}, ${b.seatId.slice(0,2)}, ${b.lockerId || null}, ${b.lockerId ? b.lockerId.slice(0,2) : null},
         ${b.lockerId ? b.lockerMonths : null}, ${b.amount},
         ${idPhotoBuffer}, ${idPhotoBuffer ? 'image/jpeg' : null},
-        ${paymentShotBuffer}, 'image/jpeg', ${b.rulesAcceptedAt}
+        ${paymentShotBuffer}, ${paymentShotBuffer ? 'image/jpeg' : null}, ${b.rulesAcceptedAt},
+        ${paymentMethod}
       )
       returning id`;
 

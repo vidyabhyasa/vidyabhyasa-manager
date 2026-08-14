@@ -46,6 +46,7 @@ async function doList(req, res){
            (id_photo is not null) as "hasIdPhoto",
            (payment_screenshot is not null) as "hasPaymentScreenshot",
            rules_accepted_at as "rulesAcceptedAt",
+           payment_method as "paymentMethod",
            created_at as "createdAt"
     from pending_registrations
     where status = 'pending'
@@ -129,9 +130,10 @@ async function doApprove(req, res, session){
     returning id`;
   const studentId = inserted[0].id;
 
+  const methodLabel = p.payment_method === 'cash' ? 'Cash' : 'UPI';
   await sql`
     insert into payments (student_id, date, amount, note)
-    values (${studentId}, ${today}, ${p.amount}, ${p.locker_id ? 'Registration — seat + locker' : 'Registration — seat'})`;
+    values (${studentId}, ${today}, ${p.amount}, ${(p.locker_id ? 'Registration — seat + locker' : 'Registration — seat') + ' (' + methodLabel + ')'})`;
 
   await sql`
     update pending_registrations set
