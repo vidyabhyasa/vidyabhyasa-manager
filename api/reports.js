@@ -79,6 +79,10 @@ export default async function handler(req, res){
     const cleanupPending = await sql`select count(*)::int as c from cleanup_flags where cleared_at is null`;
     const needsCleaning = cleanupPending[0] ? cleanupPending[0].c : 0;
 
+    const openCharges = await sql`select amount_due, amount_paid from charges where status = 'open'`;
+    const outstandingBalance = openCharges.reduce((a,c)=>a + (Number(c.amount_due) - Number(c.amount_paid)), 0);
+    const openChargesCount = openCharges.length;
+
     res.status(200).json({
       range: { from, to },
       revenue: {
@@ -106,7 +110,9 @@ export default async function handler(req, res){
         warningCount,
         overdueCount,
         criticalCount,
-        needsCleaning
+        needsCleaning,
+        outstandingBalance,
+        openChargesCount
       }
     });
   }catch(err){

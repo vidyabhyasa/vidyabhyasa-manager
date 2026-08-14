@@ -37,6 +37,8 @@ endpoint (database connection, auth helpers, email, config) lives in
 9. Then run `migration-05-payment-method-column.sql` — adds a proper
    `payment_method` column to the payments table itself, so Reports
    can cleanly total cash vs UPI without parsing note text.
+10. Then run `migration-06-partial-payments.sql` — adds the `charges`
+    table that powers partial payments.
 
 ## 2. Push this project to GitHub
 
@@ -202,6 +204,42 @@ Staff review these under the new **Pending approvals** page:
   email)
 - **Reject** (with an optional reason) → the seat/locker becomes free
   again immediately
+
+## Partial payments
+
+Recording a renewal payment no longer has to be all-or-nothing. When
+staff record a payment for a student's seat or locker, they see the
+amount actually due (based on the month selection) and a separate,
+editable "amount to pay now" field:
+
+- **Pay the full amount** → works exactly as before: the due date
+  extends immediately.
+- **Pay less than the full amount** → a "charge" is created with the
+  remaining balance visible. The due date does **not** move yet. The
+  student shows a small purple dot on their Dashboard tile and a
+  "Balance" entry on the Subscriptions table.
+- **Come back later and pay the rest** → the same student's Record
+  Payment modal now shows the open balance directly, with a field
+  pre-filled to the remaining amount. Once the cumulative payments
+  reach the full due amount, the due date extends automatically at
+  that point.
+- **Cancel a stale charge** — if a student decides not to continue
+  after a partial payment, staff can cancel the open charge from the
+  same modal. The partial payment already logged stays on record;
+  the balance just stops showing as pending.
+
+At most one open charge exists per seat or per locker at a time —
+staff must resolve (pay off or cancel) the current one before
+starting a new renewal for that same seat/locker. Seat and locker
+balances are tracked completely independently.
+
+There's also a **"Log a one-off payment instead"** link in the same
+modal, for anything that isn't a renewal at all (a late fee, a
+replacement ID card charge, etc.) — it never touches a due date.
+
+Reports now show a founder-visible **Outstanding balance** total
+across all open charges, and payment history shows the method per
+line with founders able to correct it after the fact.
 
 ## Notifications and auto-removal (Stage 2)
 

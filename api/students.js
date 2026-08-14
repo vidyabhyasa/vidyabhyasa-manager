@@ -35,8 +35,13 @@ async function doList(req, res){
     select id, student_id as "studentId", date, amount, note, payment_method as "paymentMethod"
     from payments
     order by date asc`;
+  const charges = await sql`
+    select id, student_id as "studentId", resource_type as "resourceType", months,
+           amount_due as "amountDue", amount_paid as "amountPaid", status
+    from charges
+    where status = 'open'`;
 
-  res.status(200).json({ students, payments });
+  res.status(200).json({ students, payments, charges });
 }
 
 async function doPhoto(req, res){
