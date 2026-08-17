@@ -430,6 +430,22 @@ function daysUntil(dateStr){
   const target = new Date(dateStr);
   return Math.round((target - today) / 86400000);
 }
+function formatDateHuman(dateStr){
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+}
+// "F1-05" -> "First floor - 05", "L2-12" -> "Second floor - 12"
+function friendlyResourceLabel(id){
+  if (!id) return '';
+  const [prefix, num] = id.split('-');
+  const floorMap = { F1: 'First floor', F2: 'Second floor', L1: 'First floor', L2: 'Second floor' };
+  return (floorMap[prefix] || prefix) + ' - ' + num;
+}
+function titleCase(str){
+  return (str || '').toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
+}
 function statusForDate(dateStr){
   const d = daysUntil(dateStr);
   if (d <= -1) return 'critical';
@@ -465,28 +481,37 @@ function totalPaid(student){
 function waLink(student, kind){
   let phone = (student.phone || '').replace(/\D/g,'');
   if (phone.length === 10) phone = '91' + phone;
+  const name = titleCase(student.name);
+  const seatLabelFriendly = friendlyResourceLabel(student.seatId);
+  const dateHuman = formatDateHuman(student.expiryDate);
   const daysLeft = daysUntil(student.expiryDate);
+  const payNote = 'Pay via UPI ID ' + UPI_ID + ' and send the payment screenshot to this number.';
   let msg;
   if (kind === 'critical'){
-    msg = 'Hi ' + student.name + ', your Vidyabhyasa study center seat subscription expired on ' + student.expiryDate + ' and is now significantly overdue. Please renew immediately to avoid losing seat ' + student.seatId + '.';
+    const alsoLocker = student.lockerId ? ' and locker' : '';
+    msg = 'Hi ' + name + ', your Vidyabhyasa seat (' + seatLabelFriendly + ') subscription expired on ' + dateHuman + ' and is now significantly overdue. Please renew TODAY, or we will have to clear your seat' + alsoLocker + ' for the next student. ' + payNote;
   } else if (kind === 'overdue'){
-    msg = 'Hi ' + student.name + ', your Vidyabhyasa study center seat subscription expired on ' + student.expiryDate + '. Please renew to continue holding seat ' + student.seatId + '.';
+    msg = 'Hi ' + name + ', your Vidyabhyasa seat (' + seatLabelFriendly + ') subscription expired on ' + dateHuman + '. Please renew to continue holding your seat. ' + payNote;
   } else {
-    msg = 'Hi ' + student.name + ', a reminder that your Vidyabhyasa study center subscription expires on ' + student.expiryDate + ' (' + Math.max(daysLeft,0) + ' day(s) left). Please renew soon to keep seat ' + student.seatId + '.';
+    msg = 'Hi ' + name + ', a reminder that your Vidyabhyasa seat (' + seatLabelFriendly + ') subscription expires on ' + dateHuman + ' (' + Math.max(daysLeft,0) + ' day(s) left). Please renew soon to keep your seat. ' + payNote;
   }
   return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg);
 }
 function lockerWaLink(student, kind){
   let phone = (student.phone || '').replace(/\D/g,'');
   if (phone.length === 10) phone = '91' + phone;
+  const name = titleCase(student.name);
+  const lockerLabelFriendly = friendlyResourceLabel(student.lockerId);
+  const dateHuman = formatDateHuman(student.lockerExpiryDate);
   const daysLeft = daysUntil(student.lockerExpiryDate);
+  const payNote = 'Pay via UPI ID ' + UPI_ID + ' and send the payment screenshot to this number.';
   let msg;
   if (kind === 'critical'){
-    msg = 'Hi ' + student.name + ', your Vidyabhyasa locker (' + student.lockerId + ') subscription expired on ' + student.lockerExpiryDate + ' and is now significantly overdue. Please renew immediately to avoid losing the locker.';
+    msg = 'Hi ' + name + ', your Vidyabhyasa locker (' + lockerLabelFriendly + ') subscription expired on ' + dateHuman + ' and is now significantly overdue. Please renew TODAY, or we will have to clear your locker for the next student. ' + payNote;
   } else if (kind === 'overdue'){
-    msg = 'Hi ' + student.name + ', your Vidyabhyasa locker (' + student.lockerId + ') subscription expired on ' + student.lockerExpiryDate + '. Please renew to keep the locker.';
+    msg = 'Hi ' + name + ', your Vidyabhyasa locker (' + lockerLabelFriendly + ') subscription expired on ' + dateHuman + '. Please renew to keep your locker. ' + payNote;
   } else {
-    msg = 'Hi ' + student.name + ', a reminder that your Vidyabhyasa locker (' + student.lockerId + ') subscription expires on ' + student.lockerExpiryDate + ' (' + Math.max(daysLeft,0) + ' day(s) left). Please renew soon.';
+    msg = 'Hi ' + name + ', a reminder that your Vidyabhyasa locker (' + lockerLabelFriendly + ') subscription expires on ' + dateHuman + ' (' + Math.max(daysLeft,0) + ' day(s) left). Please renew soon. ' + payNote;
   }
   return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg);
 }
