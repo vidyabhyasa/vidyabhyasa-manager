@@ -2,6 +2,7 @@ import { sql, addMonths, todayISO, toDateStr } from '../lib/db.js';
 import { requireStaff } from '../lib/auth.js';
 import { sendEmail, billEmailHTML } from '../lib/email.js';
 import { logAudit } from '../lib/audit.js';
+import { signBillToken } from '../lib/billToken.js';
 
 const EDITABLE_STUDENT = {
   name: 'name', phone: 'phone', email: 'email', examPrep: 'exam_prep'
@@ -23,6 +24,8 @@ export default async function handler(req, res){
     if (action === 'edit') return await doEdit(req, res, session);
     if (action === 'swap') return await doSwap(req, res, session);
     if (action === 'resendBill') return await doResendBill(req, res, session);
+    if (action === 'generateBillToken') return await doGenerateBillToken(req, res, session);
+    if (action === 'uploadIdPhoto') return await doUploadIdPhoto(req, res, session);
     if (action === 'editPayment') return await doEditPayment(req, res, session);
     if (action === 'deletePayment') return await doDeletePayment(req, res, session);
     return res.status(400).json({ error: 'Unknown or missing action' });
@@ -335,6 +338,45 @@ async function doResendBill(req, res, session){
   });
 
   res.status(200).json({ ok: true, emailSent: result.sent, emailReason: result.reason });
+}
+
+async function doGenerateBillToken(req, res, session){
+  const { studentId } = req.body || {};
+  if (!studentId) return res.status(400).json({ error: 'studentId required' });
+
+  const rows = await sql`select id, name from students where id = ${studentId}`;
+  const student = rows[0];
+  if (!student) return res.status(404).json({ error: 'Student not found' });
+
+  const token = signBillToken(studentId);
+
+  await logAudit({
+    actorId: session.id, actorName: session.label, action: 'resend_bill',
+    targetType: 'student', targetId: studentId,
+    details: student.name + ' — bill QR link generated'
+  });
+
+  res.status(200).json({ token });
+}
+
+async function doUploadIdPhoto(req, res, session){
+  const { studentId, photoBase64 } = req.body || {};
+  if (!studentId || !photoBase64) return res.status(400).json({ error: 'studentId and photoBase64 required' });
+
+  const rows = await sql`select id, name from students where id = ${studentId}`;
+  const student = rows[0];
+  if (!student) return res.status(404).json({ error: 'Student not found' });
+
+  const buffer = Buffer.from(photoBase64.split(',').pop(), 'base64');
+  await sql`update students set id_photo = ${buffer}, id_photo_type = 'image/jpeg' where id = ${studentId}`;
+
+  await logAudit({
+    actorId: session.id, actorName: session.label, action: 'edit_student',
+    targetType: 'student', targetId: studentId,
+    details: student.name + ' — ID photo uploaded by staff'
+  });
+
+  res.status(200).json({ ok: true });
 }
 
 async function doEditPayment(req, res, session){

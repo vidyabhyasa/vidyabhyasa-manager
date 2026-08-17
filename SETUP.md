@@ -205,6 +205,29 @@ Staff review these under the new **Pending approvals** page:
 - **Reject** (with an optional reason) → the seat/locker becomes free
   again immediately
 
+## Sharing bills, WhatsApp reminders, and ID proof
+
+**Share bill** (from a student's detail modal) now offers two ways to
+get someone their bill, no WhatsApp:
+- **Share by email** — same as before, resends the bill email.
+- **Show QR to scan** — generates a signed link and shows it as a QR
+  code. Scanning it opens a clean, mobile-friendly bill page in the
+  browser (no app, no login) — good for handing a phone/tablet to a
+  student to scan on their own device. Links are valid for 180 days.
+
+**WhatsApp reminders** — the seat detail modal now shows three
+buttons (Expiring / Overdue / Critical) so staff can send whichever
+reminder tone fits, regardless of the student's exact current status.
+
+**ID proof is optional at registration.** A student can submit
+without one, and staff can review and approve as usual. Anyone
+missing ID proof shows up two ways:
+- A **"Missing ID" filter** on the Dashboard, plus a small amber dot
+  in the top-left corner of their seat tile (the balance-due dot, if
+  any, stays top-right — they can show at once).
+- An **"Upload now"** button right in that student's detail modal,
+  for whenever staff actually collect the physical ID from them.
+
 ## Partial payments
 
 Recording a renewal payment no longer has to be all-or-nothing. When

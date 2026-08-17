@@ -778,11 +778,13 @@ function buildFloorCells(floor, isLockers, dashStatusFilter, q){
       cellTitle += ' — ' + daysLabel;
       const oc = openChargeFor(occ, isLockers ? 'locker' : 'seat');
       if (oc) cellTitle += ' — ₹' + (oc.amountDue - oc.amountPaid) + ' balance due';
+      if (!occ.hasIdPhoto) cellTitle += ' — ID missing';
     }
 
     let matchesFilter = dashStatusFilter === 'all'
       || dashStatusFilter === cellStatus
-      || (dashStatusFilter === 'occupied' && !!occ);
+      || (dashStatusFilter === 'occupied' && !!occ)
+      || (dashStatusFilter === 'noid' && !!occ && !occ.hasIdPhoto);
     let matchesSearch = true;
     if (q){
       const seatNumStr = String(i);
@@ -797,7 +799,8 @@ function buildFloorCells(floor, isLockers, dashStatusFilter, q){
     const nameHtml = personName ? '<span class="seat-name">'+truncateName(personName)+'</span>' : '';
     const daysHtml = daysLabel ? '<span class="seat-days">'+daysLabel+'</span>' : '';
     const balanceDot = (occ && openChargeFor(occ, isLockers ? 'locker' : 'seat')) ? '<span style="position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--pend);"></span>' : '';
-    html += '<div class="seat '+cls+'" style="position:relative;" data-kind="'+kindAttr+'" data-floor="'+floor.id+'" data-num="'+i+'"'+pendAttr+' title="'+cellTitle+'">'+balanceDot+'<span class="seat-num">'+i+'</span>'+nameHtml+daysHtml+'</div>';
+    const idDot = (occ && !occ.hasIdPhoto) ? '<span style="position:absolute;top:3px;left:3px;width:7px;height:7px;border-radius:50%;background:var(--warn);"></span>' : '';
+    html += '<div class="seat '+cls+'" style="position:relative;" data-kind="'+kindAttr+'" data-floor="'+floor.id+'" data-num="'+i+'"'+pendAttr+' title="'+cellTitle+'">'+balanceDot+idDot+'<span class="seat-num">'+i+'</span>'+nameHtml+daysHtml+'</div>';
   }
   return { html, visibleCount };
 }
@@ -863,7 +866,8 @@ function renderDashboard(){
   const filterLabel = {
     all:'', free:'Showing free only', occupied:'Showing occupied only',
     warning:'Showing expiring within 2 days', overdue:'Showing overdue (day of expiry) only',
-    critical:'Showing 3+ days overdue', pending:'Showing pending approval only'
+    critical:'Showing 3+ days overdue', pending:'Showing pending approval only',
+    noid:'Showing occupants missing ID proof'
   }[dashStatusFilter];
 
   return `
@@ -910,6 +914,8 @@ function renderDashboard(){
         <span><span class="dot" style="background:var(--overdue)"></span>Overdue</span>
         <span><span class="dot" style="background:var(--critical)"></span>Critical</span>
         <span><span class="dot" style="background:var(--pend)"></span>Pending approval</span>
+        <span><span class="dot" style="background:var(--pend)"></span>● top-right = balance due</span>
+        <span><span class="dot" style="background:var(--warn)"></span>● top-left = ID missing</span>
       </div>
       <div class="filter-row">
         <div class="filter-btn ${dashStatusFilter==='all'?'active':''}" data-dashfilter="all">All</div>
@@ -919,6 +925,7 @@ function renderDashboard(){
         <div class="filter-btn ${dashStatusFilter==='overdue'?'active':''}" data-dashfilter="overdue">Overdue</div>
         <div class="filter-btn ${dashStatusFilter==='critical'?'active':''}" data-dashfilter="critical">Critical</div>
         <div class="filter-btn ${dashStatusFilter==='pending'?'active':''}" data-dashfilter="pending">Pending</div>
+        <div class="filter-btn ${dashStatusFilter==='noid'?'active':''}" data-dashfilter="noid">Missing ID</div>
         <div class="search-box"><input type="text" id="dash-search" placeholder="Search name, phone, or seat #" value="${dashSearch}"></div>
       </div>
       ${filterLabel ? `<p style="font-size:12px;color:var(--muted);margin:-8px 0 14px;">${filterLabel} (${visibleCount} shown) — <a href="#" id="dash-clear-filter" style="color:var(--ink-light);">clear filter</a></p>` : ''}
@@ -1075,10 +1082,11 @@ function renderRegisterDetails(){
             <small class="field-error" id="err-email"></small>
           </div>
           <div>
-            <label>Upload ID proof (photo or scan)</label>
+            <label>Upload ID proof (photo or scan) — optional</label>
             <input type="file" id="f-id-file" accept="image/*">
             <div id="f-id-preview" style="display:none;margin-top:-8px;margin-bottom:16px;"></div>
             <small class="field-error" id="err-idphoto"></small>
+            <p style="font-size:11px;color:var(--muted);margin:-10px 0 16px;">Don't have it now? You can skip this — staff will follow up to collect it.</p>
           </div>
         </div>
         <div class="grid-2">
@@ -1542,6 +1550,7 @@ function renderPending(){
           </div>
         </div>
         ${p.amount < p.amountDue ? `<div class="notice" style="margin-top:16px;background:var(--warn-bg);border-color:var(--warn);color:var(--warn-text);">Partial payment — ₹${p.amountDue - p.amount} short of the ₹${p.amountDue} due. Approving will still grant the full requested term, with the shortfall tracked as an open balance payable later.</div>` : ''}
+        ${!p.hasIdPhoto ? `<div class="notice" style="margin-top:16px;background:var(--warn-bg);border-color:var(--warn);color:var(--warn-text);">No ID proof was uploaded — you can still approve, but flag this so someone follows up to collect it (it'll show as "Missing ID" on the Dashboard afterward).</div>` : ''}
         <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
           ${p.hasIdPhoto ? `<button class="btn btn-outline btn-sm" data-fetchphoto="${p.id}">View ID photo</button>` : ''}
           ${p.hasPaymentScreenshot ? `<button class="btn btn-outline btn-sm" data-fetchpayment="${p.id}">View payment screenshot</button>` : ''}
@@ -1774,63 +1783,149 @@ function showStaffSeatModal(kind, floorId, num){
       closeModal();
       await navigateTo('register', { step: 1 });
     };
-  } else {
-    const st = statusOf(occ);
-    modalRoot.innerHTML = `
-      <div class="modal-overlay" id="ov">
-        <div class="modal">
-          <h3>${occ.name}</h3>
-          <span class="badge ${st}" style="margin-top:4px;display:inline-block;">${st}</span>
-          <div style="margin-top:14px;">
-            <div class="row"><span>Seat</span><span>${occ.seatId}</span></div>
-            <div class="row"><span>Locker</span><span>${occ.lockerId || '—'}</span></div>
-            <div class="row"><span>Phone</span><span>${occ.phone}</span></div>
-            <div class="row"><span>Email</span><span>${occ.email||'—'}</span></div>
-            <div class="row"><span>Exam</span><span>${occ.examPrep}</span></div>
-            <div class="row"><span>Joined</span><span>${occ.joinDate}</span></div>
-            <div class="row"><span>Expires</span><span>${occ.expiryDate}</span></div>
-            <div class="row"><span>Total paid</span><span>₹${totalPaid(occ)}</span></div>
-            ${(() => {
-              const seatCharge = openChargeFor(occ, 'seat');
-              const lockerCharge = openChargeFor(occ, 'locker');
-              let html = '';
-              if (seatCharge) html += `<div class="row"><span>Seat balance due</span><span style="color:var(--warn-text);font-weight:600;">₹${seatCharge.amountDue - seatCharge.amountPaid}</span></div>`;
-              if (lockerCharge) html += `<div class="row"><span>Locker balance due</span><span style="color:var(--warn-text);font-weight:600;">₹${lockerCharge.amountDue - lockerCharge.amountPaid}</span></div>`;
-              return html;
-            })()}
+    document.getElementById('close-modal').onclick = closeModal;
+    document.getElementById('ov').onclick = (e)=>{ if(e.target.id==='ov') closeModal(); };
+    return;
+  }
+
+  const st = statusOf(occ);
+  const seatCharge = openChargeFor(occ, 'seat');
+  const lockerCharge = openChargeFor(occ, 'locker');
+
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal" style="width:460px;padding:0;overflow:hidden;">
+        <div style="padding:20px 24px;background:var(--paper-2);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+          <div>
+            <h3 style="font-size:17px;">${occ.name}</h3>
+            <p style="color:var(--muted);font-size:13px;margin-top:3px;">${occ.phone}${occ.email ? ' · ' + occ.email : ''}</p>
           </div>
-          <div id="id-photo-wrap" style="margin-top:10px;"></div>
-          <div class="modal-actions">
+          <span class="badge ${st}" style="flex-shrink:0;">${st}</span>
+        </div>
+
+        <div style="padding:20px 24px;">
+          ${(seatCharge || lockerCharge || !occ.hasIdPhoto) ? `
+          <div style="margin-bottom:16px;display:flex;flex-direction:column;gap:8px;">
+            ${seatCharge ? `<div style="background:var(--warn-bg);border:1px solid var(--warn);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--warn-text);display:flex;justify-content:space-between;"><span>Seat balance due</span><strong>₹${seatCharge.amountDue - seatCharge.amountPaid}</strong></div>` : ''}
+            ${lockerCharge ? `<div style="background:var(--warn-bg);border:1px solid var(--warn);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--warn-text);display:flex;justify-content:space-between;"><span>Locker balance due</span><strong>₹${lockerCharge.amountDue - lockerCharge.amountPaid}</strong></div>` : ''}
+            ${!occ.hasIdPhoto ? `<div style="background:var(--warn-bg);border:1px solid var(--warn);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--warn-text);display:flex;justify-content:space-between;align-items:center;"><span>ID proof not on file</span><button class="btn btn-sm btn-outline" id="upload-id-btn" style="background:#fff;">Upload now</button></div>` : ''}
+          </div>` : ''}
+
+          <div class="grid-2" style="gap:0 28px;">
+            <div>
+              <p style="font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin-bottom:8px;font-weight:600;">Placement</p>
+              <div class="row"><span>Seat</span><span style="font-weight:600;">${occ.seatId}</span></div>
+              <div class="row"><span>Locker</span><span style="font-weight:600;">${occ.lockerId || '—'}</span></div>
+              <div class="row"><span>Exam</span><span>${occ.examPrep}</span></div>
+            </div>
+            <div>
+              <p style="font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin-bottom:8px;font-weight:600;">Subscription</p>
+              <div class="row"><span>Joined</span><span>${occ.joinDate}</span></div>
+              <div class="row"><span>Expires</span><span>${occ.expiryDate}</span></div>
+              <div class="row"><span>Total paid</span><span style="font-weight:600;">₹${totalPaid(occ)}</span></div>
+            </div>
+          </div>
+
+          ${occ.hasIdPhoto ? `<div id="id-photo-wrap" style="margin-top:16px;"></div>` : ''}
+
+          <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line);">
+            <p style="font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin-bottom:8px;font-weight:600;">Send a reminder</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <a class="btn btn-sm btn-wa" href="${waLink(occ, 'warning')}" target="_blank" rel="noopener">Expiring</a>
+              <a class="btn btn-sm btn-wa" href="${waLink(occ, 'overdue')}" target="_blank" rel="noopener">Overdue</a>
+              <a class="btn btn-sm btn-wa" href="${waLink(occ, 'critical')}" target="_blank" rel="noopener">Critical</a>
+            </div>
+          </div>
+
+          <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn" id="record-payment" data-id="${occ.id}">Record payment</button>
-            <a class="btn btn-wa" href="${waLink(occ, st)}" target="_blank" rel="noopener">WhatsApp</a>
+            <button class="btn btn-outline" id="share-bill" data-id="${occ.id}">Share bill</button>
             ${!occ.lockerId ? `<button class="btn btn-outline" id="assign-locker" data-id="${occ.id}">Assign locker</button>` : ''}
             <button class="btn btn-outline" id="edit-student" data-id="${occ.id}">Edit details</button>
             <button class="btn btn-outline" id="move-seat" data-id="${occ.id}">Move seat</button>
             ${occ.lockerId ? `<button class="btn btn-outline" id="move-locker" data-id="${occ.id}">Move locker</button>` : ''}
-            <button class="btn btn-outline" id="share-bill" data-id="${occ.id}">Share bill</button>
             <button class="btn btn-outline" id="payment-history" data-id="${occ.id}">Payment history</button>
-            <button class="btn btn-outline" id="remove-student" data-id="${occ.id}">Remove</button>
-            <button class="btn btn-outline" id="close-modal">Close</button>
+          </div>
+
+          <div style="margin-top:14px;display:flex;gap:8px;">
+            <button class="btn btn-outline" id="remove-student" data-id="${occ.id}" style="flex:1;justify-content:center;color:var(--critical);border-color:var(--critical);">Remove student</button>
+            <button class="btn btn-outline" id="close-modal" style="flex:1;justify-content:center;">Close</button>
           </div>
         </div>
-      </div>`;
-    document.getElementById('remove-student').onclick = ()=> showRemoveReasonModal(occ.id, ()=>render());
-    document.getElementById('record-payment').onclick = ()=> showPaymentModal(occ.id);
-    document.getElementById('edit-student').onclick = ()=> showEditStudentModal(occ.id);
-    document.getElementById('move-seat').onclick = ()=> showSwapModal(occ.id, 'seat');
-    document.getElementById('share-bill').onclick = ()=> showShareBillModal(occ.id);
-    document.getElementById('payment-history').onclick = ()=> showPaymentHistoryModal(occ.id);
-    const moveLockerBtn = document.getElementById('move-locker');
-    if (moveLockerBtn) moveLockerBtn.onclick = ()=> showSwapModal(occ.id, 'locker');
-    const assignBtn = document.getElementById('assign-locker');
-    if (assignBtn) assignBtn.onclick = ()=> showAssignLockerModal(occ.id);
-    if (occ.hasIdPhoto){
-      renderLoadableThumb(document.getElementById('id-photo-wrap'), '/api/students?photo=1&id=' + occ.id, 'ID proof');
-    }
+      </div>
+    </div>`;
+
+  document.getElementById('remove-student').onclick = ()=> showRemoveReasonModal(occ.id, ()=>render());
+  document.getElementById('record-payment').onclick = ()=> showPaymentModal(occ.id);
+  document.getElementById('edit-student').onclick = ()=> showEditStudentModal(occ.id);
+  document.getElementById('move-seat').onclick = ()=> showSwapModal(occ.id, 'seat');
+  document.getElementById('share-bill').onclick = ()=> showShareBillModal(occ.id);
+  document.getElementById('payment-history').onclick = ()=> showPaymentHistoryModal(occ.id);
+  const moveLockerBtn = document.getElementById('move-locker');
+  if (moveLockerBtn) moveLockerBtn.onclick = ()=> showSwapModal(occ.id, 'locker');
+  const assignBtn = document.getElementById('assign-locker');
+  if (assignBtn) assignBtn.onclick = ()=> showAssignLockerModal(occ.id);
+  const uploadIdBtn = document.getElementById('upload-id-btn');
+  if (uploadIdBtn) uploadIdBtn.onclick = ()=> showUploadIdModal(occ.id);
+  if (occ.hasIdPhoto){
+    renderLoadableThumb(document.getElementById('id-photo-wrap'), '/api/students?photo=1&id=' + occ.id, 'ID proof');
   }
   document.getElementById('close-modal').onclick = closeModal;
   document.getElementById('ov').onclick = (e)=>{ if(e.target.id==='ov') closeModal(); };
 }
+
+function showUploadIdModal(studentId){
+  const s = students.find(x=>x.id===studentId);
+  if (!s) return;
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Upload ID proof</h3>
+        <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">${s.name}</p>
+        <label>Photo or scan</label>
+        <input type="file" id="upload-id-file" accept="image/*">
+        <div id="upload-id-preview" style="display:none;margin-top:-8px;margin-bottom:16px;"></div>
+        <small class="field-error" id="err-upload-id"></small>
+        <div class="modal-actions">
+          <button class="btn" id="upload-id-submit">Save</button>
+          <button class="btn btn-outline" id="close-modal">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('close-modal').onclick = ()=> showStaffSeatModal('seat', s.floor, Number(s.seatId.split('-')[1]));
+  document.getElementById('ov').onclick = (e)=>{ if(e.target.id==='ov') showStaffSeatModal('seat', s.floor, Number(s.seatId.split('-')[1])); };
+
+  const fileInput = document.getElementById('upload-id-file');
+  const preview = document.getElementById('upload-id-preview');
+  fileInput.onchange = async ()=>{
+    const file = fileInput.files[0];
+    if (!file){ preview.style.display = 'none'; preview.innerHTML=''; return; }
+    const raw = await readFileAsDataURL(file);
+    const resized = await resizeImageDataURL(raw, 900, 0.72);
+    fileInput.dataset.resized = resized;
+    preview.style.display = 'block';
+    preview.innerHTML = `<img src="${resized}" style="max-width:140px;max-height:100px;border-radius:6px;border:1px solid var(--line);">`;
+    clearFieldError('upload-id-file','err-upload-id');
+  };
+
+  document.getElementById('upload-id-submit').onclick = async ()=>{
+    if (!fileInput.dataset.resized){ showFieldError('upload-id-file','err-upload-id','Choose a photo first.'); return; }
+    const submitBtn = document.getElementById('upload-id-submit');
+    submitBtn.disabled = true; submitBtn.textContent = 'Saving…';
+    try{
+      await apiPost('/api/student-actions', { action: 'uploadIdPhoto', studentId, photoBase64: fileInput.dataset.resized });
+      await loadFullStudents();
+      closeModal();
+      showStaffSeatModal('seat', s.floor, Number(s.seatId.split('-')[1]));
+      showToast('ID photo saved');
+    }catch(err){
+      showToast(err.message || 'Failed to upload');
+      submitBtn.disabled = false; submitBtn.textContent = 'Save';
+    }
+  };
+}
+
 
 function showStaffLockerModal(floorId, num){
   const label = lockerLabel(floorId, num);
@@ -2305,16 +2400,6 @@ function showSwapModal(studentId, kind){
 function showShareBillModal(studentId){
   const s = students.find(x=>x.id===studentId);
   if (!s) return;
-  const billText = 'Vidyabhyasa Study Center — Receipt\n' +
-    'Name: ' + s.name + '\n' +
-    'Seat: ' + s.seatId + (s.lockerId ? ' · Locker: ' + s.lockerId : '') + '\n' +
-    'Subscription: ' + s.durationMonths + ' month(s), joined ' + s.joinDate + '\n' +
-    'Valid until: ' + s.expiryDate + (s.lockerExpiryDate ? ' (locker until ' + s.lockerExpiryDate + ')' : '') + '\n' +
-    'Total paid: ₹' + totalPaid(s);
-  let phone = (s.phone || '').replace(/\D/g,'');
-  if (phone.length === 10) phone = '91' + phone;
-  const waUrl = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(billText);
-
   const modalRoot = document.getElementById('modal-root');
   modalRoot.innerHTML = `
     <div class="modal-overlay" id="ov">
@@ -2322,14 +2407,16 @@ function showShareBillModal(studentId){
         <h3>Share bill</h3>
         <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">${s.name}</p>
         <div class="modal-actions" style="flex-direction:column;align-items:stretch;">
-          <a class="btn btn-wa" href="${waUrl}" target="_blank" rel="noopener" style="justify-content:center;">Share via WhatsApp</a>
-          ${s.email ? `<button class="btn" id="resend-email-btn" style="justify-content:center;">Resend bill email</button>` : `<p style="font-size:12px;color:var(--muted);">No email on file — WhatsApp only.</p>`}
+          ${s.email ? `<button class="btn" id="resend-email-btn" style="justify-content:center;">Share by email</button>` : `<p style="font-size:12px;color:var(--muted);">No email on file — QR option only.</p>`}
+          <button class="btn btn-outline" id="show-qr-btn" style="justify-content:center;">Show QR to scan</button>
           <button class="btn btn-outline" id="close-modal" style="justify-content:center;">Close</button>
         </div>
+        <div id="bill-qr-wrap" style="display:none;margin-top:16px;text-align:center;"></div>
       </div>
     </div>`;
   document.getElementById('close-modal').onclick = closeModal;
   document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+
   const resendBtn = document.getElementById('resend-email-btn');
   if (resendBtn) resendBtn.onclick = async ()=>{
     resendBtn.disabled = true; resendBtn.textContent = 'Sending…';
@@ -2339,7 +2426,26 @@ function showShareBillModal(studentId){
       closeModal();
     }catch(err){
       showToast(err.message || 'Failed to send email');
-      resendBtn.disabled = false; resendBtn.textContent = 'Resend bill email';
+      resendBtn.disabled = false; resendBtn.textContent = 'Share by email';
+    }
+  };
+
+  const qrBtn = document.getElementById('show-qr-btn');
+  qrBtn.onclick = async ()=>{
+    qrBtn.disabled = true; qrBtn.textContent = 'Generating…';
+    try{
+      const result = await apiPost('/api/student-actions', { action: 'generateBillToken', studentId });
+      const billUrl = window.location.origin + '/api/bill?token=' + encodeURIComponent(result.token);
+      const qrImgUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(billUrl);
+      const wrap = document.getElementById('bill-qr-wrap');
+      wrap.style.display = 'block';
+      wrap.innerHTML = `
+        <img src="${qrImgUrl}" style="width:200px;height:200px;border:1px solid var(--line);border-radius:8px;">
+        <p style="font-size:12px;color:var(--muted);margin-top:10px;">Scan to view the bill in a browser — no app needed.</p>`;
+    }catch(err){
+      showToast(err.message || 'Failed to generate QR');
+    }finally{
+      qrBtn.disabled = false; qrBtn.textContent = 'Show QR to scan';
     }
   };
 }
@@ -2662,7 +2768,6 @@ function attachHandlers(){
       else if (!isValidEmail(emailVal)){ showFieldError('f-email','err-email','Enter a valid email address.'); valid = false; }
       if (!examVal){ showFieldError('f-exam','err-exam','Enter the exam this student is preparing for.'); valid = false; }
       if (!joinVal){ showFieldError('f-join','err-join','Pick a date of joining.'); valid = false; }
-      if (!fileInput.dataset.resized){ showFieldError('f-id-file','err-idphoto','Upload a photo of the student\u2019s ID proof.'); valid = false; }
       if (!seatId){ showToast('No seat selected'); valid = false; }
       if (!valid) return;
 
