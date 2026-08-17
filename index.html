@@ -1413,6 +1413,7 @@ function renderReports(){
       <h2>Reports</h2>
       <p>${range.from} to ${range.to}</p>
     </div>
+    ${r.emailConfigured === false ? `<div class="notice" style="background:var(--critical-bg);border-color:var(--critical);color:var(--critical-text);">Email isn't sending — <strong>RESEND_API_KEY</strong> and/or <strong>RESEND_FROM_EMAIL</strong> aren't set in Vercel's environment variables, so approval and bill emails are being silently skipped. Add both in your Vercel project settings, then redeploy.</div>` : ''}
     ${presetTabs}
 
     <h3 style="font-size:15px;margin:8px 0 14px;">Revenue</h3>
