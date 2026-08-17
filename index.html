@@ -167,7 +167,7 @@
   .search-box{margin-left:auto;width:220px;}
   .search-box input{margin:0;}
   .modal-overlay{position:fixed;inset:0;background:rgba(22,50,79,0.45);display:flex;align-items:center;justify-content:center;z-index:50;}
-  .modal{background:#fff;border-radius:14px;padding:26px 28px;width:380px;max-width:90vw;}
+  .modal{background:#fff;border-radius:14px;padding:26px 28px;width:380px;max-width:90vw;max-height:88vh;overflow-y:auto;}
   .modal h3{font-size:18px;margin-bottom:4px;}
   .row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;gap:14px;}
   .row span:first-child{color:var(--muted);flex-shrink:0;}
@@ -598,25 +598,30 @@ function readFileAsDataURL(file){
   return new Promise((resolve, reject)=>{
     const r = new FileReader();
     r.onload = ()=> resolve(r.result);
-    r.onerror = reject;
+    r.onerror = ()=> reject(new Error('Could not read that file. Please try a different photo.'));
     r.readAsDataURL(file);
   });
 }
 function resizeImageDataURL(dataUrl, maxDim, quality){
-  return new Promise((resolve)=>{
+  return new Promise((resolve, reject)=>{
     const img = new Image();
     img.onload = ()=>{
-      let w = img.width, h = img.height;
-      if (w > maxDim || h > maxDim){
-        if (w > h){ h = Math.round(h * maxDim / w); w = maxDim; }
-        else { w = Math.round(w * maxDim / h); h = maxDim; }
+      try{
+        let w = img.width, h = img.height;
+        if (!w || !h){ reject(new Error('This photo could not be read. Please pick a JPEG or PNG.')); return; }
+        if (w > maxDim || h > maxDim){
+          if (w > h){ h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      }catch(err){
+        reject(new Error('Could not process this photo. Please try a different one.'));
       }
-      const canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL('image/jpeg', quality));
     };
-    img.onerror = ()=> resolve(dataUrl);
+    img.onerror = ()=> reject(new Error('This photo format isn\u2019t supported by the browser (common with HEIC photos from iPhones) \u2014 please choose a JPEG/PNG, or on iPhone switch Camera Formats to "Most Compatible" and retake it.'));
     img.src = dataUrl;
   });
 }
@@ -1819,8 +1824,8 @@ function showStaffSeatModal(kind, floorId, num){
 
   modalRoot.innerHTML = `
     <div class="modal-overlay" id="ov">
-      <div class="modal" style="width:460px;padding:0;overflow:hidden;">
-        <div style="padding:20px 24px;background:var(--paper-2);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+      <div class="modal" style="width:460px;padding:0;">
+        <div style="padding:20px 24px;background:var(--paper-2);border-bottom:1px solid var(--line);border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
           <div>
             <h3 style="font-size:17px;">${occ.name}</h3>
             <p style="color:var(--muted);font-size:13px;margin-top:3px;">${occ.phone}${occ.email ? ' · ' + occ.email : ''}</p>
@@ -1926,12 +1931,20 @@ function showUploadIdModal(studentId){
   fileInput.onchange = async ()=>{
     const file = fileInput.files[0];
     if (!file){ preview.style.display = 'none'; preview.innerHTML=''; return; }
-    const raw = await readFileAsDataURL(file);
-    const resized = await resizeImageDataURL(raw, 900, 0.72);
-    fileInput.dataset.resized = resized;
-    preview.style.display = 'block';
-    preview.innerHTML = `<img src="${resized}" style="max-width:140px;max-height:100px;border-radius:6px;border:1px solid var(--line);">`;
     clearFieldError('upload-id-file','err-upload-id');
+    preview.style.display = 'block';
+    preview.innerHTML = '<div class="spinner sm"></div>';
+    try{
+      const raw = await readFileAsDataURL(file);
+      const resized = await resizeImageDataURL(raw, 900, 0.72);
+      fileInput.dataset.resized = resized;
+      preview.innerHTML = `<img src="${resized}" style="max-width:140px;max-height:100px;border-radius:6px;border:1px solid var(--line);">`;
+    }catch(err){
+      preview.style.display = 'none';
+      preview.innerHTML = '';
+      fileInput.value = '';
+      showFieldError('upload-id-file','err-upload-id', err.message || 'Could not use this photo.');
+    }
   };
 
   document.getElementById('upload-id-submit').onclick = async ()=>{
@@ -2758,15 +2771,23 @@ function attachHandlers(){
     fileInput.onchange = async ()=>{
       const file = fileInput.files[0];
       if (!file){ preview.style.display = 'none'; preview.innerHTML=''; return; }
-      const raw = await readFileAsDataURL(file);
-      const resized = await resizeImageDataURL(raw, 900, 0.72);
-      fileInput.dataset.resized = resized;
-      const existing = loadRegDraft() || {};
-      existing.idPhotoBase64 = resized;
-      try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
-      preview.style.display = 'block';
-      preview.innerHTML = `<img src="${resized}" style="max-width:140px;max-height:100px;border-radius:6px;border:1px solid var(--line);">`;
       clearFieldError('f-id-file','err-idphoto');
+      preview.style.display = 'block';
+      preview.innerHTML = '<div class="spinner sm"></div>';
+      try{
+        const raw = await readFileAsDataURL(file);
+        const resized = await resizeImageDataURL(raw, 900, 0.72);
+        fileInput.dataset.resized = resized;
+        const existing = loadRegDraft() || {};
+        existing.idPhotoBase64 = resized;
+        try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
+        preview.innerHTML = `<img src="${resized}" style="max-width:140px;max-height:100px;border-radius:6px;border:1px solid var(--line);">`;
+      }catch(err){
+        preview.style.display = 'none';
+        preview.innerHTML = '';
+        fileInput.value = '';
+        showFieldError('f-id-file','err-idphoto', err.message || 'Could not use this photo.');
+      }
     };
 
     form.onsubmit = (e)=>{
@@ -2860,12 +2881,20 @@ function attachHandlers(){
     shotInput.onchange = async ()=>{
       const file = shotInput.files[0];
       if (!file){ shotPreview.style.display = 'none'; shotPreview.innerHTML=''; return; }
-      const raw = await readFileAsDataURL(file);
-      const resized = await resizeImageDataURL(raw, 900, 0.72);
-      shotInput.dataset.resized = resized;
-      shotPreview.style.display = 'block';
-      shotPreview.innerHTML = `<img src="${resized}" style="max-width:140px;max-height:100px;border-radius:6px;border:1px solid var(--line);">`;
       clearFieldError('pay-screenshot','err-screenshot');
+      shotPreview.style.display = 'block';
+      shotPreview.innerHTML = '<div class="spinner sm"></div>';
+      try{
+        const raw = await readFileAsDataURL(file);
+        const resized = await resizeImageDataURL(raw, 900, 0.72);
+        shotInput.dataset.resized = resized;
+        shotPreview.innerHTML = `<img src="${resized}" style="max-width:140px;max-height:100px;border-radius:6px;border:1px solid var(--line);">`;
+      }catch(err){
+        shotPreview.style.display = 'none';
+        shotPreview.innerHTML = '';
+        shotInput.value = '';
+        showFieldError('pay-screenshot','err-screenshot', err.message || 'Could not use this screenshot.');
+      }
     };
 
     document.getElementById('pay-submit-btn').onclick = async ()=>{
