@@ -39,6 +39,9 @@ endpoint (database connection, auth helpers, email, config) lives in
    can cleanly total cash vs UPI without parsing note text.
 10. Then run `migration-06-partial-payments.sql` — adds the `charges`
     table that powers partial payments.
+11. Then run `migration-07-r2-storage.sql` — adds the columns used to
+    reference photos stored in Cloudflare R2 (see the "Image storage"
+    section below for the full R2 setup).
 
 ## 2. Push this project to GitHub
 
@@ -204,6 +207,62 @@ Staff review these under the new **Pending approvals** page:
   email)
 - **Reject** (with an optional reason) → the seat/locker becomes free
   again immediately
+
+## Image storage (Cloudflare R2)
+
+ID photos and payment screenshots are now stored in Cloudflare R2
+(object storage) instead of directly in the database — this is both
+cheaper at scale and more reliable than shuttling binary data through
+Postgres.
+
+**One-time setup:**
+1. Log into (or create) a [Cloudflare account](https://dash.cloudflare.com).
+2. Go to **R2** in the sidebar → **Create bucket**. Name it something
+   like `vidyabhyasa-uploads`. Leave it **private** (default) — do
+   **not** enable public access, since these are personal documents.
+3. Go to **R2 → Manage API tokens → Create API token**. Give it
+   **Object Read & Write** permission, scoped to your bucket if
+   possible. Copy the **Access Key ID** and **Secret Access Key** —
+   the secret is only shown once.
+4. Find your **Account ID** (shown on the R2 overview page, or in the
+   URL of your Cloudflare dashboard).
+5. Add these to your Vercel project's environment variables
+   (Production):
+   ```
+   R2_ACCOUNT_ID=<your account id>
+   R2_ACCESS_KEY_ID=<the access key id>
+   R2_SECRET_ACCESS_KEY=<the secret access key>
+   R2_BUCKET_NAME=vidyabhyasa-uploads
+   ```
+6. Redeploy so the new environment variables take effect.
+
+**What changes for you:** nothing in the day-to-day app — uploading
+and viewing ID photos/payment screenshots works exactly the same.
+Behind the scenes, new uploads go to R2 and only a short reference
+key gets stored in the database.
+
+**Existing photos** (uploaded before you set up R2) keep working
+automatically via a fallback — the app checks for an R2 key first,
+and reads the old database column if there isn't one yet. Nothing
+breaks if you don't migrate them immediately.
+
+**To actually move old photos into R2** (optional, recommended once
+R2 is confirmed working), run the migration script from your own
+computer — NOT on Vercel:
+```
+git clone <your repo>
+cd <repo>
+npm install
+DATABASE_URL="<your neon connection string>" \
+R2_ACCOUNT_ID="<...>" R2_ACCESS_KEY_ID="<...>" \
+R2_SECRET_ACCESS_KEY="<...>" R2_BUCKET_NAME="vidyabhyasa-uploads" \
+node scripts/migrate-to-r2.js
+```
+It only touches records that don't already have an R2 key, so it's
+safe to re-run if it's interrupted partway through. After confirming
+photos load correctly in the app, you can optionally drop the old
+now-empty bytea columns — the exact `ALTER TABLE` statements are in
+`migration-07-r2-storage.sql`.
 
 ## Sharing bills, WhatsApp reminders, and ID proof
 

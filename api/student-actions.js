@@ -3,6 +3,7 @@ import { requireStaff } from '../lib/auth.js';
 import { sendEmail, billEmailHTML } from '../lib/email.js';
 import { logAudit } from '../lib/audit.js';
 import { signBillToken } from '../lib/billToken.js';
+import { uploadToR2, newObjectKey, isR2Configured } from '../lib/r2.js';
 
 const EDITABLE_STUDENT = {
   name: 'name', phone: 'phone', email: 'email', examPrep: 'exam_prep'
@@ -368,7 +369,13 @@ async function doUploadIdPhoto(req, res, session){
   if (!student) return res.status(404).json({ error: 'Student not found' });
 
   const buffer = Buffer.from(photoBase64.split(',').pop(), 'base64');
-  await sql`update students set id_photo = ${buffer}, id_photo_type = 'image/jpeg' where id = ${studentId}`;
+  if (isR2Configured()){
+    const key = newObjectKey('id-photos');
+    await uploadToR2(key, buffer, 'image/jpeg');
+    await sql`update students set id_photo = null, id_photo_type = null, id_photo_key = ${key} where id = ${studentId}`;
+  } else {
+    await sql`update students set id_photo = ${buffer}, id_photo_type = 'image/jpeg', id_photo_key = null where id = ${studentId}`;
+  }
 
   await logAudit({
     actorId: session.id, actorName: session.label, action: 'edit_student',

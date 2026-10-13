@@ -1,4 +1,5 @@
 import { sql } from '../lib/db.js';
+import { uploadToR2, newObjectKey, isR2Configured } from '../lib/r2.js';
 
 export default async function handler(req, res){
   try{
@@ -32,19 +33,32 @@ export default async function handler(req, res){
     const paymentMethod = b.paymentMethod === 'cash' ? 'cash' : 'upi';
     if (paymentMethod === 'upi' && !paymentShotBuffer) return res.status(400).json({ error: 'Payment screenshot is required for UPI payments' });
 
+    let idPhotoKey = null, paymentShotKey = null;
+    let idPhotoLegacy = null, paymentShotLegacy = null;
+    if (isR2Configured()){
+      if (idPhotoBuffer){ idPhotoKey = newObjectKey('id-photos'); await uploadToR2(idPhotoKey, idPhotoBuffer, 'image/jpeg'); }
+      if (paymentShotBuffer){ paymentShotKey = newObjectKey('payment-screenshots'); await uploadToR2(paymentShotKey, paymentShotBuffer, 'image/jpeg'); }
+    } else {
+      // R2 not set up yet — fall back to the old bytea columns so
+      // uploads still work rather than silently disappearing.
+      idPhotoLegacy = idPhotoBuffer;
+      paymentShotLegacy = paymentShotBuffer;
+    }
+
     const rows = await sql`
       insert into pending_registrations (
         name, phone, email, exam_prep, join_date, duration_months,
         seat_id, floor, locker_id, locker_floor, locker_months, amount,
-        id_photo, id_photo_type, payment_screenshot, payment_screenshot_type, rules_accepted_at,
-        payment_method
+        id_photo, id_photo_type, id_photo_key,
+        payment_screenshot, payment_screenshot_type, payment_screenshot_key,
+        rules_accepted_at, payment_method
       ) values (
         ${b.name}, ${b.phone}, ${b.email || null}, ${b.examPrep}, ${b.joinDate}, ${b.durationMonths},
         ${b.seatId}, ${b.seatId.slice(0,2)}, ${b.lockerId || null}, ${b.lockerId ? b.lockerId.slice(0,2) : null},
         ${b.lockerId ? b.lockerMonths : null}, ${b.amount},
-        ${idPhotoBuffer}, ${idPhotoBuffer ? 'image/jpeg' : null},
-        ${paymentShotBuffer}, ${paymentShotBuffer ? 'image/jpeg' : null}, ${b.rulesAcceptedAt},
-        ${paymentMethod}
+        ${idPhotoLegacy}, ${idPhotoLegacy ? 'image/jpeg' : null}, ${idPhotoKey},
+        ${paymentShotLegacy}, ${paymentShotLegacy ? 'image/jpeg' : null}, ${paymentShotKey},
+        ${b.rulesAcceptedAt}, ${paymentMethod}
       )
       returning id`;
 

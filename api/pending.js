@@ -3,6 +3,7 @@ import { requireStaff } from '../lib/auth.js';
 import { sendEmail, billEmailHTML } from '../lib/email.js';
 import { logAudit } from '../lib/audit.js';
 import { presetForMonths, LOCKER_MONTHLY, LOCKER_DEPOSIT } from '../lib/layout.js';
+import { fetchFromR2 } from '../lib/r2.js';
 
 const EDITABLE = {
   name: 'name', phone: 'phone', email: 'email', examPrep: 'exam_prep',
@@ -44,8 +45,8 @@ async function doList(req, res){
            locker_floor as "lockerFloor",
            locker_months as "lockerMonths",
            amount,
-           (id_photo is not null) as "hasIdPhoto",
-           (payment_screenshot is not null) as "hasPaymentScreenshot",
+           (id_photo is not null or id_photo_key is not null) as "hasIdPhoto",
+           (payment_screenshot is not null or payment_screenshot_key is not null) as "hasPaymentScreenshot",
            rules_accepted_at as "rulesAcceptedAt",
            payment_method as "paymentMethod",
            created_at as "createdAt"
@@ -63,16 +64,27 @@ async function doList(req, res){
 async function doPhoto(req, res){
   const { id, type } = req.query;
   if (!id) return res.status(400).json({ error: 'id required' });
-  const column = type === 'payment' ? 'payment_screenshot' : 'id_photo';
-  const typeColumn = type === 'payment' ? 'payment_screenshot_type' : 'id_photo_type';
+  const isPayment = type === 'payment';
+  const keyColumn = isPayment ? 'payment_screenshot_key' : 'id_photo_key';
+  const column = isPayment ? 'payment_screenshot' : 'id_photo';
+  const typeColumn = isPayment ? 'payment_screenshot_type' : 'id_photo_type';
 
   const rows = await sql(
-    `select ${column} as photo, ${typeColumn} as phototype from pending_registrations where id = $1`,
+    `select ${keyColumn} as key, ${column} as photo, ${typeColumn} as phototype from pending_registrations where id = $1`,
     [id]
   );
   const row = rows[0];
-  if (!row || !row.photo) return res.status(404).end();
+  if (!row) return res.status(404).end();
 
+  if (row.key){
+    const obj = await fetchFromR2(row.key);
+    if (!obj) return res.status(404).end();
+    res.setHeader('Content-Type', obj.contentType);
+    res.setHeader('Cache-Control', 'private, max-age=60');
+    return res.status(200).send(obj.buffer);
+  }
+
+  if (!row.photo) return res.status(404).end();
   res.setHeader('Content-Type', row.phototype || 'image/jpeg');
   res.setHeader('Cache-Control', 'private, max-age=60');
   res.status(200).send(toImageBuffer(row.photo));
@@ -120,18 +132,24 @@ async function doApprove(req, res, session){
   const joinDate = toDateStr(p.join_date);
   const expiryDate = addMonths(joinDate, p.duration_months);
   const lockerExpiry = p.locker_id ? addMonths(joinDate, p.locker_months) : null;
-  const idPhotoBuffer = toImageBuffer(p.id_photo);
+  // If this pending request already has an R2 key, just copy the
+  // reference — no bytes to move at all. Otherwise (a record from
+  // before R2 was set up) fall back to normalizing and copying the
+  // legacy bytea column, same as before.
+  const idPhotoKey = p.id_photo_key || null;
+  const idPhotoBuffer = idPhotoKey ? null : toImageBuffer(p.id_photo);
+  const idPhotoType = idPhotoKey ? null : p.id_photo_type;
 
   const inserted = await sql`
     insert into students (
       name, phone, email, exam_prep, join_date, duration_months, expiry_date,
       seat_id, floor, locker_id, locker_floor, locker_join_date, locker_months,
-      locker_expiry_date, locker_deposit, id_photo, id_photo_type
+      locker_expiry_date, locker_deposit, id_photo, id_photo_type, id_photo_key
     ) values (
       ${p.name}, ${p.phone}, ${p.email}, ${p.exam_prep}, ${joinDate}, ${p.duration_months}, ${expiryDate},
       ${p.seat_id}, ${p.floor}, ${p.locker_id}, ${p.locker_floor},
       ${p.locker_id ? joinDate : null}, ${p.locker_months},
-      ${lockerExpiry}, ${p.locker_id ? 200 : null}, ${idPhotoBuffer}, ${p.id_photo_type}
+      ${lockerExpiry}, ${p.locker_id ? 200 : null}, ${idPhotoBuffer}, ${idPhotoType}, ${idPhotoKey}
     )
     returning id`;
   const studentId = inserted[0].id;

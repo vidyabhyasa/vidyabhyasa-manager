@@ -1,5 +1,6 @@
 import { sql, toImageBuffer } from '../lib/db.js';
 import { requireStaff } from '../lib/auth.js';
+import { fetchFromR2 } from '../lib/r2.js';
 
 export default async function handler(req, res){
   const session = requireStaff(req, res);
@@ -28,7 +29,7 @@ async function doList(req, res){
            locker_months as "lockerMonths",
            locker_expiry_date as "lockerExpiryDate",
            locker_deposit as "lockerDeposit",
-           (id_photo is not null) as "hasIdPhoto"
+           (id_photo is not null or id_photo_key is not null) as "hasIdPhoto"
     from students
     order by expiry_date asc`;
   const payments = await sql`
@@ -48,10 +49,19 @@ async function doPhoto(req, res){
   const { id } = req.query;
   if (!id) return res.status(400).json({ error: 'id required' });
 
-  const rows = await sql`select id_photo, id_photo_type from students where id = ${id}`;
+  const rows = await sql`select id_photo, id_photo_type, id_photo_key from students where id = ${id}`;
   const row = rows[0];
-  if (!row || !row.id_photo) return res.status(404).end();
+  if (!row) return res.status(404).end();
 
+  if (row.id_photo_key){
+    const obj = await fetchFromR2(row.id_photo_key);
+    if (!obj) return res.status(404).end();
+    res.setHeader('Content-Type', obj.contentType);
+    res.setHeader('Cache-Control', 'private, max-age=60');
+    return res.status(200).send(obj.buffer);
+  }
+
+  if (!row.id_photo) return res.status(404).end();
   res.setHeader('Content-Type', row.id_photo_type || 'image/jpeg');
   res.setHeader('Cache-Control', 'private, max-age=60');
   res.status(200).send(toImageBuffer(row.id_photo));
