@@ -547,6 +547,7 @@ function digitsOnly(v){ return v.replace(/\D/g, ''); }
 // picking a different seat, or an accidental reload, until the
 // form is actually submitted.
 // ============================================================
+let regIdPhoto = null; // in-memory copy of the resized ID photo
 function saveRegDraft(){
   const ids = ['f-name','f-phone','f-email','f-exam','f-join','f-months','f-seat','f-locker','f-locker-months','pay-amount','pay-amount-other'];
   const draft = { regFloor, regStep, rulesAccepted: !!draft_rulesAccepted() };
@@ -554,6 +555,11 @@ function saveRegDraft(){
     const el = document.getElementById(id);
     if (el) draft[id] = el.value;
   });
+  // Keep the ID photo: it is stored in the draft but has no form field, so
+  // rebuilding the draft from fields alone used to silently wipe it.
+  const prev = loadRegDraft();
+  if (regIdPhoto) draft.idPhotoBase64 = regIdPhoto;
+  else if (prev && prev.idPhotoBase64) { draft.idPhotoBase64 = prev.idPhotoBase64; regIdPhoto = prev.idPhotoBase64; }
   try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(draft)); }catch(e){}
 }
 function draft_rulesAccepted(){
@@ -569,6 +575,7 @@ function loadRegDraft(){
   }catch(e){ return null; }
 }
 function clearRegDraft(){
+  regIdPhoto = null;
   try{ localStorage.removeItem(REG_DRAFT_KEY); }catch(e){}
 }
 function applyRegDraft(){
@@ -2779,6 +2786,7 @@ function attachHandlers(){
         const raw = await readFileAsDataURL(file);
         const resized = await resizeImageDataURL(raw, 900, 0.72);
         fileInput.dataset.resized = resized;
+        regIdPhoto = resized;
         const existing = loadRegDraft() || {};
         existing.idPhotoBase64 = resized;
         try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
@@ -2934,7 +2942,8 @@ function attachHandlers(){
         payload.lockerId = finalDraft['f-locker'];
         payload.lockerMonths = Number(finalDraft['f-locker-months']);
       }
-      if (finalDraft.idPhotoBase64) payload.photoBase64 = finalDraft.idPhotoBase64;
+      const idPhotoData = regIdPhoto || finalDraft.idPhotoBase64;
+      if (idPhotoData) payload.photoBase64 = idPhotoData;
 
       try{
         await apiPost('/api/register', payload);
