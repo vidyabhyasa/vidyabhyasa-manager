@@ -1703,6 +1703,7 @@ function showImageLightbox(src, title){
   modalRoot.innerHTML = `
     <div class="modal-overlay" id="lightbox-ov" style="z-index:200;">
       <div style="max-width:92vw;max-height:92vh;position:relative;">
+        <div style="position:absolute;top:-42px;left:0;background:#fff;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700;">${title||''}</div>
         <button class="btn btn-outline" id="lightbox-close" style="position:absolute;top:-46px;right:0;background:#fff;">Close</button>
         <div id="lightbox-loader" style="width:280px;height:280px;max-width:80vw;max-height:70vh;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;">
           <div class="spinner"></div>
@@ -1728,7 +1729,11 @@ function renderLoadableThumb(wrap, src, title){
   const uid = 'thumb-' + Math.random().toString(36).slice(2);
   const holder = document.createElement('div');
   holder.style.display = 'inline-block';
+  holder.style.margin = '0 12px 8px 0';
+  holder.style.verticalAlign = 'top';
+  const tagColor = /payment/i.test(title||'') ? 'background:#e8f1ff;color:#1a56c4;' : 'background:#fff3e0;color:#b45309;';
   holder.innerHTML = `
+    <div style="display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:999px;margin-bottom:6px;${tagColor}">${/payment/i.test(title||'') ? 'Payment screenshot' : 'ID proof'}</div>
     <div class="thumb-box" id="${uid}-loader"><div class="spinner sm"></div></div>
     <img id="${uid}-img" alt="${title||''}" title="${title||''} — click to enlarge"
          style="display:none;max-width:160px;max-height:160px;border-radius:8px;border:1px solid var(--line);cursor:pointer;">
