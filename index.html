@@ -419,10 +419,17 @@ window.onpopstate = async (event)=>{
 // ============================================================
 function seatLabel(floorId, num){ return floorId + '-' + String(num).padStart(2,'0'); }
 function lockerLabel(floorId, num){ return floorId + '-' + String(num).padStart(2,'0'); }
-function todayISO(){ return new Date().toISOString().slice(0,10); }
+function todayISO(){ return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); }
+// Format any timestamp in India time, e.g. "13 Oct 2026, 3:24 pm"
+function formatDateTimeIST(v){
+  if (!v) return '';
+  const d = new Date(v);
+  if (isNaN(d)) return String(v);
+  return d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+}
 function addMonths(dateStr, months){
-  const d = new Date(dateStr);
-  d.setMonth(d.getMonth() + Number(months));
+  const d = new Date(String(dateStr).slice(0,10) + 'T00:00:00Z');
+  d.setUTCMonth(d.getUTCMonth() + Number(months));
   return d.toISOString().slice(0,10);
 }
 function daysUntil(dateStr){
@@ -432,9 +439,9 @@ function daysUntil(dateStr){
 }
 function formatDateHuman(dateStr){
   if (!dateStr) return '';
-  const d = new Date(dateStr + 'T00:00:00');
+  const d = new Date(String(dateStr).slice(0,10) + 'T00:00:00Z');
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+  return d.getUTCDate() + ' ' + months[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
 }
 // "F1-05" -> "First floor - 05", "L2-12" -> "Second floor - 12"
 function friendlyResourceLabel(id){
@@ -1318,7 +1325,7 @@ function renderSubscriptions(){
         <td>${s.seatId}</td>
         <td>${lockerCell}</td>
         <td>${s.examPrep}</td>
-        <td>${s.expiryDate}<br><span style="color:var(--muted);font-size:12px">${daysLabel}</span></td>
+        <td>${formatDateHuman(s.expiryDate)}<br><span style="color:var(--muted);font-size:12px">${daysLabel}</span></td>
         <td><span class="badge ${st}">${st}</span></td>
         <td>₹${totalPaid(s)}</td>
         <td>${balanceCell}</td>
@@ -1368,7 +1375,7 @@ function reportRangeForPreset(preset){
     return { from: d, to: d };
   }
   if (preset === 'month'){
-    const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+    const from = todayISO().slice(0,8) + '01';
     return { from, to: todayISO() };
   }
   return { from: reportsFrom || todayISO(), to: reportsTo || todayISO() };
@@ -1530,7 +1537,7 @@ function renderAuditLog(){
   };
   const rows = auditEntries.map(e=>`
     <tr>
-      <td style="white-space:nowrap;">${timeAgo(e.createdAt)}<br><span style="color:var(--muted);font-size:11px;">${new Date(e.createdAt).toLocaleString()}</span></td>
+      <td style="white-space:nowrap;">${timeAgo(e.createdAt)}<br><span style="color:var(--muted);font-size:11px;">${formatDateTimeIST(e.createdAt)}</span></td>
       <td>${e.actorName || '—'}</td>
       <td>${actionLabels[e.action] || e.action}</td>
       <td>${e.details || ''}</td>
@@ -1576,7 +1583,7 @@ function renderPending(){
             <div class="row"><span>Seat</span><span style="font-weight:600;">${p.seatId}</span></div>
             ${p.lockerId ? `<div class="row"><span>Locker</span><span style="font-weight:600;">${p.lockerId}</span></div>` : ''}
             <div class="row"><span>Exam</span><span>${p.examPrep}</span></div>
-            <div class="row"><span>Joining</span><span>${p.joinDate}</span></div>
+            <div class="row"><span>Joining</span><span>${formatDateHuman(p.joinDate)}</span></div>
           </div>
           <div>
             <p style="font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin-bottom:8px;font-weight:600;">Subscription & payment</p>
@@ -1863,8 +1870,8 @@ function showStaffSeatModal(kind, floorId, num){
             </div>
             <div>
               <p style="font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin-bottom:8px;font-weight:600;">Subscription</p>
-              <div class="row"><span>Joined</span><span>${occ.joinDate}</span></div>
-              <div class="row"><span>Expires</span><span>${occ.expiryDate}</span></div>
+              <div class="row"><span>Joined</span><span>${formatDateHuman(occ.joinDate)}</span></div>
+              <div class="row"><span>Expires</span><span>${formatDateHuman(occ.expiryDate)}</span></div>
               <div class="row"><span>Total paid</span><span style="font-weight:600;">₹${totalPaid(occ)}</span></div>
             </div>
           </div>
@@ -2507,7 +2514,7 @@ function showPaymentHistoryModal(studentId){
   const isFounder = session && session.role === 'founder';
   const rows = (s.payments || []).slice().reverse().map((p,idx)=>`
     <div class="row" data-payment-idx="${idx}">
-      <span>${p.date} — ${p.note||''} <span class="badge pending" style="text-transform:capitalize;">${p.paymentMethod || 'upi'}</span></span>
+      <span>${formatDateHuman(p.date)} — ${p.note||''} <span class="badge pending" style="text-transform:capitalize;">${p.paymentMethod || 'upi'}</span></span>
       <span>₹${p.amount}${isFounder && p.id ? ` <button class="btn btn-sm btn-outline" data-editpay="${p.id}" data-amount="${p.amount}" data-note="${(p.note||'').replace(/"/g,'&quot;')}" data-method="${p.paymentMethod||'upi'}">Edit</button> <button class="btn btn-sm btn-outline" data-deletepay="${p.id}">Delete</button>` : ''}</span>
     </div>
   `).join('');

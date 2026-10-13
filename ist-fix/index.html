@@ -1,0 +1,3098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vidyabhyasa — Study Center Manager</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16324F;
+    --ink-light:#2C4A6E;
+    --paper:#FBF8F2;
+    --paper-2:#F3EEE2;
+    --card:#FFFFFF;
+    --line:#E4DFD1;
+    --amber:#E3A857;
+    --amber-dark:#8A5A16;
+    --free:#189B5C;
+    --free-bg:#C7EED9;
+    --free-text:#0B5C36;
+    --occ:#1D6FA5;
+    --occ-bg:#C6E2F5;
+    --occ-text:#0D4066;
+    --warn:#B8890A;
+    --warn-bg:#F7E1A8;
+    --warn-text:#6B4C06;
+    --pend:#6B3FA0;
+    --pend-bg:#E3D6F5;
+    --pend-text:#3D1E63;
+    --overdue:#D9631E;
+    --overdue-bg:#FBD9B8;
+    --overdue-text:#7A3808;
+    --critical:#C81E3A;
+    --critical-bg:#F3C0CA;
+    --critical-text:#6B0F1D;
+    --muted:#7C7566;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Inter',sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{font-family:'Fraunces',serif;font-weight:500;margin:0;}
+  .app{display:flex;min-height:100vh;}
+  .sidebar{
+    width:220px;background:var(--ink);color:#EFE7D6;padding:28px 0;
+    flex-shrink:0;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;
+  }
+  .brand{padding:0 24px 24px;border-bottom:1px solid rgba(239,231,214,0.15);margin-bottom:16px;}
+  .brand h1{font-size:20px;color:#fff;letter-spacing:0.2px;}
+  .brand p{font-size:12px;color:#B9C4D4;margin-top:4px;font-family:'Inter',sans-serif;}
+  .nav-item{
+    display:flex;align-items:center;gap:10px;padding:12px 24px;font-size:14px;cursor:pointer;
+    color:#CBD5E1;border-left:3px solid transparent;transition:background .15s;
+  }
+  .nav-item:hover{background:rgba(255,255,255,0.05);}
+  .nav-item.active{background:rgba(227,168,87,0.12);border-left-color:var(--amber);color:#fff;font-weight:500;}
+  .nav-item.auth-only, .nav-item.founder-only{display:none;}
+  .nav-icon{width:16px;text-align:center;font-size:14px;}
+  main{flex:1;padding:36px 40px;max-width:1180px;}
+  .top-header{
+    display:flex;align-items:center;justify-content:flex-end;gap:14px;
+    margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--line);
+  }
+  .top-header .who{font-size:13px;color:var(--muted);}
+  .top-header .who strong{color:var(--ink);}
+  .top-header a.logout-link{color:var(--amber-dark);font-size:13px;font-weight:500;text-decoration:none;}
+  .page-head{margin-bottom:28px;}
+  .page-head h2{font-size:24px;color:var(--ink);}
+  .page-head p{color:var(--muted);font-size:14px;margin-top:6px;}
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;}
+  .metric-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;}
+  .metric-card .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;}
+  .metric-card .value{font-family:'Fraunces',serif;font-size:28px;margin-top:4px;color:var(--ink);}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px 28px;margin-bottom:20px;}
+  label{display:block;font-size:13px;font-weight:500;color:var(--ink-light);margin-bottom:6px;}
+  input,select{
+    width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;
+    font-size:14px;font-family:'Inter',sans-serif;background:var(--paper-2);color:var(--ink);margin-bottom:16px;
+  }
+  input:focus,select:focus{outline:none;border-color:var(--amber);background:#fff;}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:0 20px;}
+  .btn{
+    display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:8px;border:1px solid var(--ink);
+    background:var(--ink);color:#fff;font-size:14px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;
+  }
+  .btn:hover{background:var(--ink-light);}
+  .btn-outline{background:transparent;color:var(--ink);border:1px solid var(--line);}
+  .btn-outline:hover{background:var(--paper-2);}
+  .btn-sm{padding:6px 12px;font-size:12px;}
+  .btn-wa{background:#3F7856;border-color:#3F7856;}
+  .btn-wa:hover{background:#2F5C41;}
+  .floor-tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+  .floor-tab{padding:8px 16px;border-radius:8px;border:1px solid var(--line);background:var(--card);font-size:13px;cursor:pointer;color:var(--muted);}
+  .floor-tab.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .legend{display:flex;gap:18px;margin-bottom:16px;font-size:12px;color:var(--muted);}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block;}
+  .seat-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:8px;}
+  .seat-grid h4{font-weight:600;}
+  .seat{
+    min-height:62px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:12px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:transform .1s;
+    padding:4px 3px;overflow:hidden;
+  }
+  .seat-num{line-height:1.2;}
+  .seat-name{
+    font-size:9px;font-weight:400;line-height:1.2;white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;max-width:100%;margin-top:2px;opacity:0.85;
+  }
+  .seat-days{
+    font-size:8px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;max-width:100%;margin-top:1px;opacity:0.8;letter-spacing:0.2px;
+  }
+  .seat:hover{transform:scale(1.06);}
+  .seat.free{background:var(--free-bg);color:var(--free-text);border-color:var(--free);border-width:1.5px;}
+  .seat.occ{background:var(--occ-bg);color:var(--occ-text);border-color:var(--occ);border-width:1.5px;}
+  .seat.warn{background:var(--warn-bg);color:var(--warn-text);border-color:var(--warn);border-width:1.5px;}
+  .seat.due{background:var(--overdue-bg);color:var(--overdue-text);border-color:var(--overdue);border-width:1.5px;}
+  .seat.crit{background:var(--critical-bg);color:var(--critical-text);border-color:var(--critical);border-width:1.5px;animation:pulse-crit 1.6s ease-in-out infinite;}
+  .seat.pend{background:var(--pend-bg);color:var(--pend-text);border-color:var(--pend);border-width:1.5px;}
+  @keyframes pulse-crit{ 0%,100%{opacity:1;} 50%{opacity:0.62;} }
+  .spinner{
+    width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--ink);
+    border-radius:50%;animation:spin 0.8s linear infinite;
+  }
+  .spinner.sm{width:18px;height:18px;border-width:2px;}
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .thumb-box{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:100px;height:100px;background:var(--paper-2);border-radius:8px;border:1px solid var(--line);
+  }
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;padding:10px 12px;color:var(--muted);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:0.3px;border-bottom:1px solid var(--line);}
+  td{padding:12px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  .badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge.active{background:var(--free-bg);color:var(--free-text);}
+  .badge.warning{background:var(--warn-bg);color:var(--warn-text);}
+  .badge.overdue{background:var(--overdue-bg);color:var(--overdue-text);}
+  .badge.critical{background:var(--critical-bg);color:var(--critical-text);}
+  .badge.pending{background:var(--pend-bg);color:var(--pend-text);}
+  .field-error{color:var(--occ-text);font-size:12px;margin:-12px 0 14px;display:none;}
+  .field-error.show{display:block;}
+  input.invalid,select.invalid{border-color:var(--occ);background:var(--occ-bg);}
+  .metric-card.clickable{cursor:pointer;transition:transform .1s,box-shadow .1s;}
+  .metric-card.clickable:hover{transform:translateY(-2px);box-shadow:0 4px 10px rgba(22,50,79,0.08);}
+  .metric-card.metric-occ{border-left:4px solid var(--occ);}
+  .metric-card.metric-free{border-left:4px solid var(--free);}
+  .metric-card.metric-warn{border-left:4px solid var(--warn);}
+  .metric-card.metric-due{border-left:4px solid var(--overdue);}
+  .metric-card.metric-crit{border-left:4px solid var(--critical);}
+  .metric-card.active-filter{outline:2px solid var(--ink);outline-offset:-1px;}
+  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;}
+  .bar-label{width:130px;flex-shrink:0;color:var(--ink-light);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .bar-track{flex:1;background:var(--paper-2);border-radius:6px;height:10px;overflow:hidden;}
+  .bar-fill{height:100%;background:var(--ink);border-radius:6px;}
+  .bar-value{width:50px;text-align:right;flex-shrink:0;font-weight:500;color:var(--ink);}
+  .filter-row{display:flex;gap:8px;margin-bottom:18px;align-items:center;flex-wrap:wrap;}
+  .filter-btn{padding:7px 14px;border-radius:20px;border:1px solid var(--line);background:var(--card);font-size:12px;cursor:pointer;color:var(--muted);}
+  .filter-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .search-box{margin-left:auto;width:220px;}
+  .search-box input{margin:0;}
+  .modal-overlay{position:fixed;inset:0;background:rgba(22,50,79,0.45);display:flex;align-items:center;justify-content:center;z-index:50;}
+  .modal{background:#fff;border-radius:14px;padding:26px 28px;width:380px;max-width:90vw;max-height:88vh;overflow-y:auto;}
+  .modal h3{font-size:18px;margin-bottom:4px;}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;gap:14px;}
+  .row span:first-child{color:var(--muted);flex-shrink:0;}
+  .modal-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;}
+  .empty{color:var(--muted);font-size:14px;padding:30px 0;text-align:center;}
+  .toast{
+    position:fixed;bottom:24px;right:24px;background:var(--ink);color:#fff;padding:12px 20px;border-radius:8px;
+    font-size:13px;z-index:100;opacity:0;transform:translateY(10px);transition:all .25s;
+  }
+  .toast.show{opacity:1;transform:translateY(0);}
+  .notice{font-size:12px;color:var(--muted);background:var(--paper-2);border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin-bottom:20px;}
+  @media(max-width:800px){
+    .app{flex-direction:column;}
+    .sidebar{width:100%;height:auto;position:relative;padding:16px;display:flex;align-items:center;justify-content:space-between;}
+    .brand{border:none;padding:0;margin:0;}
+    .nav-item{padding:8px 12px;}
+    main{padding:20px;}
+    .metrics{grid-template-columns:repeat(2,1fr);}
+    .seat-grid{grid-template-columns:repeat(6,1fr);}
+    .grid-2{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="brand" style="display:flex;align-items:center;gap:10px;">
+      <img src="/logo.jpeg" alt="Vidyabhyasa" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;">
+      <div>
+        <h1>Vidyabhyasa</h1>
+        <p>Study center, Mysuru</p>
+      </div>
+    </div>
+    <div id="nav">
+      <div class="nav-item guest-only" data-page="availability"><span class="nav-icon">◎</span> Availability</div>
+      <div class="nav-item auth-only" data-page="dashboard"><span class="nav-icon">▦</span> Dashboard</div>
+      <div class="nav-item auth-only" data-page="pending"><span class="nav-icon">⏳</span> Pending approvals</div>
+      <div class="nav-item" data-page="register"><span class="nav-icon">＋</span> New registration</div>
+      <div class="nav-item auth-only" data-page="subscriptions"><span class="nav-icon">⏰</span> Subscriptions</div>
+      <div class="nav-item auth-only founder-only" data-page="reports"><span class="nav-icon">▤</span> Reports</div>
+      <div class="nav-item auth-only founder-only" data-page="audit"><span class="nav-icon">☰</span> Audit log</div>
+    </div>
+  </div>
+
+  <main>
+    <div class="top-header" id="top-header"></div>
+    <div id="main"></div>
+  </main>
+</div>
+
+<div id="modal-root"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// API helpers — everything talks to the /api/* serverless
+// functions (same origin as this page once deployed on Vercel).
+// ============================================================
+async function apiGet(path){
+  const res = await fetch(path, { credentials: 'same-origin' });
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+async function apiPost(path, body){
+  const res = await fetch(path, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {})
+  });
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+// ============================================================
+// Static config
+// ============================================================
+const FLOORS = [
+  { id:'F1', label:'First floor', sub:'Non-AC', count:87 },
+  { id:'F2', label:'Second floor', sub:'AC', count:43 }
+];
+const LOCKERS = [
+  { id:'L1', label:'1st floor lockers', sub:'', count:32 },
+  { id:'L2', label:'2nd floor lockers', sub:'', count:16 }
+];
+const LOCKER_MONTHLY = 100;
+const LOCKER_DEPOSIT = 200;
+const SEAT_TO_LOCKER_FLOOR = { F1:'L1', F2:'L2' };
+const PAYMENT_PRESETS = [1000, 1900, 2800];
+const GATED_PAGES = ['dashboard', 'subscriptions', 'reports', 'pending', 'audit'];
+
+// Keep these in sync with lib/config.js
+const UPI_ID = 'paytm.s21tdlt@pty';
+const UPI_PAYEE_NAME = 'Vidyabhyasa Study Center';
+const RULES_TEXT = [
+  { icon: '🤫', label: 'Silence', text: 'Keep silence in the study centre.' },
+  { icon: '🚫', label: 'Discussions', text: 'Discussion and disturbing others are strictly not allowed inside the study centre.' },
+  { icon: '🏫', label: 'Entry', text: 'Only admitted members are allowed inside the study centre.' },
+  { icon: '📵', label: 'Phone calls', text: 'Talking on the phone is not allowed inside the study centre.' },
+  { icon: '🪑', label: 'Seating', text: 'One should sit in the allotted seat only.' },
+  { icon: '📢', label: 'Concerns', text: 'If any problems or discomfort, contact management immediately.' },
+  { icon: '🍽️', label: 'Food', text: 'Do not eat on the study table.' },
+  { icon: '🧹', label: 'Cleanliness', text: 'Maintain cleanliness at all times.' },
+  { icon: '⚠️', label: 'Property', text: 'Marking, scratching, or damaging library property invites disciplinary action.' },
+  { icon: '🎧', label: 'Online classes', text: 'Headphones/earbuds should be used while listening to online classes.' },
+  { icon: '💳', label: 'Refunds', text: 'No refund after registration.' },
+  { icon: '📰', label: 'Newspapers', text: 'Keep newspaper in the stand after reading.' },
+  { icon: '💎', label: 'Valuables', text: 'Do not keep money, gold, or valuable items on the desk.' },
+  { icon: '🔄', label: 'Seat changes', text: 'Inform management and get approval before changing your allotted seat.' },
+  { icon: '🌀', label: 'Fans', text: "Do not adjust fan positions — they're already set for proper airflow to all members." }
+];
+const RULES_NOTES = [
+  'Late payment does not extend your membership. Renewals are always calculated from your due date, not the payment date.',
+  'Fee must be paid within 3 days after the due date to retain your seat. If payment is not received within 3 days, your books will be moved to the locker, and the seat may be allotted to another member. Books will be returned after clearing all pending dues.'
+];
+
+// ============================================================
+// State
+// ============================================================
+let session = null;               // { role, label } once logged in
+let students = [];                 // full records — staff only
+let freeSeats = [];                // [{floor,num,resourceId}] — public
+let freeLockers = [];
+let currentPage = 'availability';
+let dashView = 'seats';
+let currentFloor = 'F1';
+let currentLockerFloor = 'L1';
+let dashStatusFilter = 'all';      // all | free | occupied | expiring
+let dashSearch = '';
+let availView = 'seats';
+let availFloorFilter = 'all';
+let regFloor = 'F1';
+let regStep = 1;                   // 1=rules, 2=details, 3=payment, 4=done
+let subFilter = 'all';
+let subSearch = '';
+let subSort = 'expiry';            // expiry | name | paid
+let reportsPreset = 'today';       // today | month | custom
+let reportsFrom = '';
+let reportsTo = '';
+let reportsData = null;
+let pendingList = [];              // staff-only: pending approval queue
+let cleanupFlags = [];             // staff-only: seats/lockers auto-removed and needing a wipe-down
+let auditEntries = [];             // founder-only: audit log
+
+const REG_DRAFT_KEY = 'vidya_register_draft';
+
+// ============================================================
+// Routing — real URLs, working back/forward, shareable links.
+// ============================================================
+const PAGE_PATHS = {
+  availability: '/',
+  dashboard: '/dashboard',
+  pending: '/pending',
+  subscriptions: '/subscriptions',
+  reports: '/reports',
+  audit: '/audit'
+};
+const PATH_TO_PAGE = {
+  '/': 'availability',
+  '/dashboard': 'dashboard',
+  '/pending': 'pending',
+  '/subscriptions': 'subscriptions',
+  '/reports': 'reports',
+  '/audit': 'audit'
+};
+const KNOWN_PAGES = ['availability', 'dashboard', 'pending', 'register', 'subscriptions', 'reports', 'audit'];
+
+function pathForPage(page, step){
+  if (page === 'register'){
+    if (step === 2) return '/register/details';
+    if (step === 3) return '/register/payment';
+    if (step === 4) return '/register/done';
+    return '/register';
+  }
+  return PAGE_PATHS[page] || '/';
+}
+
+function parsePath(pathname){
+  const clean = pathname.replace(/\/+$/, '') || '/';
+  if (clean.startsWith('/register')){
+    const sub = clean.slice('/register'.length);
+    let step = 1;
+    if (sub === '/details') step = 2;
+    else if (sub === '/payment') step = 3;
+    else if (sub === '/done') step = 4;
+    return { page: 'register', step };
+  }
+  const page = PATH_TO_PAGE[clean];
+  return { page: KNOWN_PAGES.includes(page) ? page : 'availability' };
+}
+
+async function loadDataForPage(page){
+  if (page === 'availability' || page === 'register') await loadPublicAvailability();
+  if (GATED_PAGES.includes(page) && session) await loadFullStudents();
+  if (page === 'reports' && session && session.role === 'founder'){
+    render();
+    await loadReportsData();
+  }
+  if (page === 'pending' && session){
+    render();
+    await loadPendingList();
+  }
+  if (page === 'dashboard' && session){
+    await loadPendingList();
+    await loadCleanupFlags();
+  }
+  if (page === 'audit' && session && session.role === 'founder'){
+    render();
+    await loadAuditLog();
+  }
+}
+
+// Central navigation entry point — updates state, updates the URL
+// (with a real history entry so back/forward work), loads whatever
+// data that page needs, then renders. Use this instead of setting
+// currentPage directly.
+async function navigateTo(page, opts){
+  opts = opts || {};
+  currentPage = page;
+  if (page === 'register' && opts.step) regStep = opts.step;
+  const path = pathForPage(page, regStep);
+  const state = { page, regStep: page === 'register' ? regStep : undefined };
+  if (opts.replace) history.replaceState(state, '', path);
+  else history.pushState(state, '', path);
+  await loadDataForPage(page);
+  render();
+}
+
+window.onpopstate = async (event)=>{
+  const state = event.state;
+  let page, step;
+  if (state && state.page){
+    page = state.page; step = state.regStep;
+  } else {
+    const parsed = parsePath(location.pathname);
+    page = parsed.page; step = parsed.step;
+  }
+  currentPage = page;
+  if (page === 'register') regStep = step || 1;
+  await loadDataForPage(page);
+  render();
+};
+
+// ============================================================
+// Date / status helpers
+// ============================================================
+function seatLabel(floorId, num){ return floorId + '-' + String(num).padStart(2,'0'); }
+function lockerLabel(floorId, num){ return floorId + '-' + String(num).padStart(2,'0'); }
+function todayISO(){ return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); }
+// Format any timestamp in India time, e.g. "13 Oct 2026, 3:24 pm"
+function formatDateTimeIST(v){
+  if (!v) return '';
+  const d = new Date(v);
+  if (isNaN(d)) return String(v);
+  return d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+}
+function addMonths(dateStr, months){
+  const d = new Date(String(dateStr).slice(0,10) + 'T00:00:00Z');
+  d.setUTCMonth(d.getUTCMonth() + Number(months));
+  return d.toISOString().slice(0,10);
+}
+function daysUntil(dateStr){
+  const today = new Date(todayISO());
+  const target = new Date(dateStr);
+  return Math.round((target - today) / 86400000);
+}
+function formatDateHuman(dateStr){
+  if (!dateStr) return '';
+  const d = new Date(String(dateStr).slice(0,10) + 'T00:00:00Z');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return d.getUTCDate() + ' ' + months[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+}
+// "F1-05" -> "First floor - 05", "L2-12" -> "Second floor - 12"
+function friendlyResourceLabel(id){
+  if (!id) return '';
+  const [prefix, num] = id.split('-');
+  const floorMap = { F1: 'First floor', F2: 'Second floor', L1: 'First floor', L2: 'Second floor' };
+  return (floorMap[prefix] || prefix) + ' - ' + num;
+}
+function titleCase(str){
+  return (str || '').toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
+}
+function statusForDate(dateStr){
+  const d = daysUntil(dateStr);
+  if (d <= -1) return 'critical';
+  if (d === 0) return 'overdue';
+  if (d <= 2) return 'warning';
+  return 'active';
+}
+function statusOf(student){ return statusForDate(student.expiryDate); }
+function lockerStatusOf(student){ return student.lockerExpiryDate ? statusForDate(student.lockerExpiryDate) : null; }
+
+// A seat/locker is occupied purely by whether a student row exists
+// for it — not by comparing dates. An overdue student still holds
+// their seat (shown in escalating warning/error/critical color)
+// until either staff remove them or the nightly cleanup job does,
+// 3+ days after expiry.
+function occupantOf(floorId, seatNum){
+  const label = seatLabel(floorId, seatNum);
+  return students.find(s => s.seatId === label);
+}
+function lockerOccupantOf(floorId, num){
+  const label = lockerLabel(floorId, num);
+  return students.find(s => s.lockerId === label);
+}
+
+function paymentAmountOptionsHTML(selected){
+  const opts = PAYMENT_PRESETS.map(v=>`<option value="${v}" ${String(v)===String(selected)?'selected':''}>₹${v}</option>`).join('');
+  return opts + `<option value="other" ${selected==='other'?'selected':''}>Other (enter amount)</option>`;
+}
+function totalPaid(student){
+  return (student.payments || []).reduce((a,p)=>a+Number(p.amount||0), 0);
+}
+
+function waLink(student, kind){
+  let phone = (student.phone || '').replace(/\D/g,'');
+  if (phone.length === 10) phone = '91' + phone;
+  const name = titleCase(student.name);
+  const seatLabelFriendly = friendlyResourceLabel(student.seatId);
+  const dateHuman = formatDateHuman(student.expiryDate);
+  const daysLeft = daysUntil(student.expiryDate);
+  const payNote = 'Pay via UPI ID ' + UPI_ID + ' and send the payment screenshot to this number.';
+  let msg;
+  if (kind === 'critical'){
+    const alsoLocker = student.lockerId ? ' and locker' : '';
+    msg = 'Hi ' + name + ', your Vidyabhyasa seat (' + seatLabelFriendly + ') subscription expired on ' + dateHuman + ' and is now significantly overdue. Please renew TODAY, or we will have to clear your seat' + alsoLocker + ' for the next student. ' + payNote;
+  } else if (kind === 'overdue'){
+    msg = 'Hi ' + name + ', your Vidyabhyasa seat (' + seatLabelFriendly + ') subscription expired on ' + dateHuman + '. Please renew to continue holding your seat. ' + payNote;
+  } else {
+    msg = 'Hi ' + name + ', a reminder that your Vidyabhyasa seat (' + seatLabelFriendly + ') subscription expires on ' + dateHuman + ' (' + Math.max(daysLeft,0) + ' day(s) left). Please renew soon to keep your seat. ' + payNote;
+  }
+  return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg);
+}
+function lockerWaLink(student, kind){
+  let phone = (student.phone || '').replace(/\D/g,'');
+  if (phone.length === 10) phone = '91' + phone;
+  const name = titleCase(student.name);
+  const lockerLabelFriendly = friendlyResourceLabel(student.lockerId);
+  const dateHuman = formatDateHuman(student.lockerExpiryDate);
+  const daysLeft = daysUntil(student.lockerExpiryDate);
+  const payNote = 'Pay via UPI ID ' + UPI_ID + ' and send the payment screenshot to this number.';
+  let msg;
+  if (kind === 'critical'){
+    msg = 'Hi ' + name + ', your Vidyabhyasa locker (' + lockerLabelFriendly + ') subscription expired on ' + dateHuman + ' and is now significantly overdue. Please renew TODAY, or we will have to clear your locker for the next student. ' + payNote;
+  } else if (kind === 'overdue'){
+    msg = 'Hi ' + name + ', your Vidyabhyasa locker (' + lockerLabelFriendly + ') subscription expired on ' + dateHuman + '. Please renew to keep your locker. ' + payNote;
+  } else {
+    msg = 'Hi ' + name + ', a reminder that your Vidyabhyasa locker (' + lockerLabelFriendly + ') subscription expires on ' + dateHuman + ' (' + Math.max(daysLeft,0) + ' day(s) left). Please renew soon. ' + payNote;
+  }
+  return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg);
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+// ============================================================
+// Validation helpers
+// ============================================================
+function showFieldError(inputId, errorId, msg){
+  const input = document.getElementById(inputId);
+  const err = document.getElementById(errorId);
+  if (input) input.classList.add('invalid');
+  if (err){ err.textContent = msg; err.classList.add('show'); }
+}
+function clearFieldError(inputId, errorId){
+  const input = document.getElementById(inputId);
+  const err = document.getElementById(errorId);
+  if (input) input.classList.remove('invalid');
+  if (err){ err.textContent = ''; err.classList.remove('show'); }
+}
+function isValidPhone(v){ return /^\d{10}$/.test(v); }
+function isValidEmail(v){ return !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+function digitsOnly(v){ return v.replace(/\D/g, ''); }
+
+// ============================================================
+// Registration draft (localStorage) — survives switching floors,
+// picking a different seat, or an accidental reload, until the
+// form is actually submitted.
+// ============================================================
+let regIdPhoto = null; // in-memory copy of the resized ID photo
+function saveRegDraft(){
+  const ids = ['f-name','f-phone','f-email','f-exam','f-join','f-months','f-seat','f-locker','f-locker-months','pay-amount','pay-amount-other'];
+  const draft = { regFloor, regStep, rulesAccepted: !!draft_rulesAccepted() };
+  ids.forEach(id=>{
+    const el = document.getElementById(id);
+    if (el) draft[id] = el.value;
+  });
+  // Keep the ID photo: it is stored in the draft but has no form field, so
+  // rebuilding the draft from fields alone used to silently wipe it.
+  const prev = loadRegDraft();
+  if (regIdPhoto) draft.idPhotoBase64 = regIdPhoto;
+  else if (prev && prev.idPhotoBase64) { draft.idPhotoBase64 = prev.idPhotoBase64; regIdPhoto = prev.idPhotoBase64; }
+  try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(draft)); }catch(e){}
+}
+function draft_rulesAccepted(){
+  const el = document.getElementById('rules-accept');
+  if (el) return el.checked;
+  const existing = loadRegDraft();
+  return existing ? !!existing.rulesAccepted : false;
+}
+function loadRegDraft(){
+  try{
+    const raw = localStorage.getItem(REG_DRAFT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function clearRegDraft(){
+  regIdPhoto = null;
+  try{ localStorage.removeItem(REG_DRAFT_KEY); }catch(e){}
+}
+function applyRegDraft(){
+  const draft = loadRegDraft();
+  if (!draft) return;
+  Object.keys(draft).forEach(id=>{
+    if (id === 'regFloor' || id === 'regStep' || id === 'rulesAccepted') return;
+    const el = document.getElementById(id);
+    if (el && draft[id]) el.value = draft[id];
+  });
+}
+
+// ============================================================
+// Image helpers (resize before upload)
+// ============================================================
+function goToRegStep(step){
+  regStep = step;
+  const existing = loadRegDraft() || {};
+  existing.regStep = step;
+  existing.regFloor = regFloor;
+  try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
+  history.pushState({ page: 'register', regStep: step }, '', pathForPage('register', step));
+  render();
+}
+
+function readFileAsDataURL(file){
+  return new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onload = ()=> resolve(r.result);
+    r.onerror = ()=> reject(new Error('Could not read that file. Please try a different photo.'));
+    r.readAsDataURL(file);
+  });
+}
+function resizeImageDataURL(dataUrl, maxDim, quality){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      try{
+        let w = img.width, h = img.height;
+        if (!w || !h){ reject(new Error('This photo could not be read. Please pick a JPEG or PNG.')); return; }
+        if (w > maxDim || h > maxDim){
+          if (w > h){ h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      }catch(err){
+        reject(new Error('Could not process this photo. Please try a different one.'));
+      }
+    };
+    img.onerror = ()=> reject(new Error('This photo format isn\u2019t supported by the browser (common with HEIC photos from iPhones) \u2014 please choose a JPEG/PNG, or on iPhone switch Camera Formats to "Most Compatible" and retake it.'));
+    img.src = dataUrl;
+  });
+}
+
+// ============================================================
+// Data loading
+// ============================================================
+async function loadPublicAvailability(){
+  try{
+    const data = await apiGet('/api/availability');
+    freeSeats = data.freeSeats || [];
+    freeLockers = data.freeLockers || [];
+  }catch(e){
+    freeSeats = []; freeLockers = [];
+  }
+}
+function isSeatFree(floorId, num){
+  const label = seatLabel(floorId, num);
+  return freeSeats.some(r => r.resourceId === label);
+}
+function isLockerFree(floorId, num){
+  const label = lockerLabel(floorId, num);
+  return freeLockers.some(r => r.resourceId === label);
+}
+
+async function loadFullStudents(){
+  try{
+    const data = await apiGet('/api/students');
+    const paymentsByStudent = {};
+    (data.payments || []).forEach(p=>{
+      (paymentsByStudent[p.studentId] = paymentsByStudent[p.studentId] || []).push({ id: p.id, date: p.date, amount: Number(p.amount), note: p.note, paymentMethod: p.paymentMethod });
+    });
+    const chargesByStudent = {};
+    (data.charges || []).forEach(c=>{
+      (chargesByStudent[c.studentId] = chargesByStudent[c.studentId] || []).push({
+        id: c.id, resourceType: c.resourceType, months: c.months,
+        amountDue: Number(c.amountDue), amountPaid: Number(c.amountPaid), status: c.status
+      });
+    });
+    students = (data.students || []).map(s => ({
+      ...s,
+      payments: paymentsByStudent[s.id] || [],
+      charges: chargesByStudent[s.id] || []
+    }));
+  }catch(e){
+    students = [];
+  }
+}
+
+async function resolveSession(){
+  try{
+    const data = await apiGet('/api/auth?action=me');
+    session = data.session || null;
+    if (session) await loadFullStudents();
+  }catch(e){
+    session = null;
+  }
+}
+
+// ============================================================
+// Render — router
+// ============================================================
+function render(){
+  document.querySelectorAll('.nav-item').forEach(el=>{
+    el.classList.toggle('active', el.dataset.page === currentPage);
+  });
+  document.querySelectorAll('.nav-item.auth-only').forEach(el=>{
+    el.style.display = session ? 'flex' : 'none';
+  });
+  document.querySelectorAll('.nav-item.guest-only').forEach(el=>{
+    el.style.display = session ? 'none' : 'flex';
+  });
+  document.querySelectorAll('.nav-item.founder-only').forEach(el=>{
+    if (el.style.display !== 'none') el.style.display = (session && session.role === 'founder') ? 'flex' : 'none';
+  });
+  updateTopHeader();
+  const main = document.getElementById('main');
+  if (currentPage === 'availability' && session){
+    currentPage = 'dashboard';
+    history.replaceState({ page: 'dashboard' }, '', pathForPage('dashboard'));
+    main.innerHTML = renderDashboard();
+  } else if (GATED_PAGES.includes(currentPage) && !session){
+    main.innerHTML = renderLogin();
+  } else if (currentPage === 'reports' && (!session || session.role !== 'founder')){
+    currentPage = 'dashboard';
+    history.replaceState({ page: 'dashboard' }, '', pathForPage('dashboard'));
+    main.innerHTML = renderDashboard();
+  } else if (currentPage === 'audit' && (!session || session.role !== 'founder')){
+    currentPage = 'dashboard';
+    history.replaceState({ page: 'dashboard' }, '', pathForPage('dashboard'));
+    main.innerHTML = renderDashboard();
+  } else if (currentPage === 'dashboard') main.innerHTML = renderDashboard();
+  else if (currentPage === 'availability') main.innerHTML = renderAvailability();
+  else if (currentPage === 'register') main.innerHTML = renderRegister();
+  else if (currentPage === 'subscriptions') main.innerHTML = renderSubscriptions();
+  else if (currentPage === 'reports') main.innerHTML = renderReports();
+  else if (currentPage === 'pending') main.innerHTML = renderPending();
+  else if (currentPage === 'audit') main.innerHTML = renderAuditLog();
+  attachHandlers();
+}
+
+async function loadReportsData(){
+  const range = reportRangeForPreset(reportsPreset);
+  try{
+    const data = await apiGet('/api/reports?from=' + range.from + '&to=' + range.to);
+    reportsData = data;
+  }catch(e){
+    reportsData = null;
+    showToast(e.message || 'Failed to load report');
+  }
+}
+
+function updateTopHeader(){
+  const box = document.getElementById('top-header');
+  if (!box) return;
+  if (session){
+    box.innerHTML = `
+      <span class="who">Signed in as <strong>${session.label}</strong> (${session.role})</span>
+      <a href="#" id="logout-link" class="logout-link">Log out</a>`;
+    document.getElementById('logout-link').onclick = async (e)=>{
+      e.preventDefault();
+      await apiPost('/api/auth?action=logout', {}).catch(()=>{});
+      session = null;
+      navigateTo('availability');
+    };
+  } else {
+    box.innerHTML = `<button class="btn" id="header-login-btn">Staff login</button>`;
+    document.getElementById('header-login-btn').onclick = ()=> navigateTo('dashboard');
+  }
+}
+
+function renderLogin(){
+  const pageLabels = { dashboard:'the dashboard', subscriptions:'subscriptions' };
+  return `
+    <div class="page-head">
+      <h2>Staff login</h2>
+      <p>Sign in to access ${pageLabels[currentPage] || 'this page'}.</p>
+    </div>
+    <div class="card" style="max-width:340px;">
+      <div style="text-align:center;margin-bottom:16px;">
+        <img src="/logo.jpeg" alt="Vidyabhyasa" style="width:56px;height:56px;border-radius:10px;object-fit:cover;">
+      </div>
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="you@vidyabhyasa.example" autocomplete="username">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="Password" autocomplete="current-password">
+      <button class="btn" id="login-submit" style="width:100%;justify-content:center;">Log in</button>
+      <p id="login-error" style="color:var(--occ-text);font-size:12px;margin-top:12px;display:none;"></p>
+    </div>
+  `;
+}
+
+// ============================================================
+// Dashboard (staff only — full personal detail)
+// ============================================================
+function pendingHolds(kind, floorId, num){
+  const label = kind === 'seat' ? seatLabel(floorId, num) : lockerLabel(floorId, num);
+  return pendingList.find(p => (kind === 'seat' ? p.seatId : p.lockerId) === label);
+}
+
+function truncateName(name){
+  if (!name) return '';
+  return name.length > 11 ? name.slice(0,10) + '…' : name;
+}
+
+function buildFloorCells(floor, isLockers, dashStatusFilter, q){
+  let html = '';
+  let visibleCount = 0;
+  for(let i=1;i<=floor.count;i++){
+    const occ = isLockers ? lockerOccupantOf(floor.id, i) : occupantOf(floor.id, i);
+    const pending = !occ ? pendingHolds(isLockers ? 'locker' : 'seat', floor.id, i) : null;
+    const st = occ ? (isLockers ? lockerStatusOf(occ) : statusOf(occ)) : null;
+    let cls, cellStatus, cellTitle, personName, daysLabel;
+    if (pending){
+      cls = 'pend'; cellStatus = 'pending'; cellTitle = pending.name + ' (pending approval)'; personName = pending.name; daysLabel = '';
+    } else if (!occ){
+      cls = 'free'; cellStatus = 'free'; cellTitle = 'Free'; personName = ''; daysLabel = '';
+    } else {
+      cellStatus = st;
+      cls = st === 'critical' ? 'crit' : st === 'overdue' ? 'due' : st === 'warning' ? 'warn' : 'occ';
+      cellTitle = occ.name; personName = occ.name;
+      const d = isLockers ? daysUntil(occ.lockerExpiryDate) : daysUntil(occ.expiryDate);
+      daysLabel = d >= 0 ? d + 'd left' : Math.abs(d) + 'd over';
+      cellTitle += ' — ' + daysLabel;
+      const oc = openChargeFor(occ, isLockers ? 'locker' : 'seat');
+      if (oc) cellTitle += ' — ₹' + (oc.amountDue - oc.amountPaid) + ' balance due';
+      if (!occ.hasIdPhoto) cellTitle += ' — ID missing';
+    }
+
+    let matchesFilter = dashStatusFilter === 'all'
+      || dashStatusFilter === cellStatus
+      || (dashStatusFilter === 'occupied' && !!occ)
+      || (dashStatusFilter === 'noid' && !!occ && !occ.hasIdPhoto);
+    let matchesSearch = true;
+    if (q){
+      const seatNumStr = String(i);
+      const person = occ || pending;
+      matchesSearch = seatNumStr === q || (person && (person.name.toLowerCase().includes(q) || person.phone.includes(q)));
+    }
+    if (!matchesFilter || !matchesSearch) continue;
+    visibleCount++;
+
+    const kindAttr = isLockers ? 'locker' : 'seat';
+    const pendAttr = pending ? ' data-pending="1"' : '';
+    const nameHtml = personName ? '<span class="seat-name">'+truncateName(personName)+'</span>' : '';
+    const daysHtml = daysLabel ? '<span class="seat-days">'+daysLabel+'</span>' : '';
+    const balanceDot = (occ && openChargeFor(occ, isLockers ? 'locker' : 'seat')) ? '<span style="position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--pend);"></span>' : '';
+    const idDot = (occ && !occ.hasIdPhoto) ? '<span style="position:absolute;top:3px;left:3px;width:7px;height:7px;border-radius:50%;background:var(--warn);"></span>' : '';
+    html += '<div class="seat '+cls+'" style="position:relative;" data-kind="'+kindAttr+'" data-floor="'+floor.id+'" data-num="'+i+'"'+pendAttr+' title="'+cellTitle+'">'+balanceDot+idDot+'<span class="seat-num">'+i+'</span>'+nameHtml+daysHtml+'</div>';
+  }
+  return { html, visibleCount };
+}
+
+function renderDashboard(){
+  const totalSeats = FLOORS.reduce((a,f)=>a+f.count,0);
+  let seatsOccupied = 0, seatsWarning = 0, seatsError = 0, seatsCritical = 0;
+  FLOORS.forEach(f=>{
+    for(let i=1;i<=f.count;i++){
+      const occ = occupantOf(f.id, i);
+      if (occ){
+        seatsOccupied++;
+        const st = statusOf(occ);
+        if (st === 'warning') seatsWarning++;
+        else if (st === 'overdue') seatsError++;
+        else if (st === 'critical') seatsCritical++;
+      }
+    }
+  });
+  const totalLockers = LOCKERS.reduce((a,f)=>a+f.count,0);
+  let lockersOccupied = 0, lockersWarning = 0, lockersError = 0, lockersCritical = 0;
+  LOCKERS.forEach(f=>{
+    for(let i=1;i<=f.count;i++){
+      const occ = lockerOccupantOf(f.id, i);
+      if (occ){
+        lockersOccupied++;
+        const st = lockerStatusOf(occ);
+        if (st === 'warning') lockersWarning++;
+        else if (st === 'overdue') lockersError++;
+        else if (st === 'critical') lockersCritical++;
+      }
+    }
+  });
+
+  const isLockers = dashView === 'lockers';
+  const total = isLockers ? totalLockers : totalSeats;
+  const occupied = isLockers ? lockersOccupied : seatsOccupied;
+  const warningCount = isLockers ? lockersWarning : seatsWarning;
+  const errorCount = isLockers ? lockersError : seatsError;
+  const criticalCount = isLockers ? lockersCritical : seatsCritical;
+  const free = total - occupied;
+  const list = isLockers ? LOCKERS : FLOORS;
+  const activeFloorId = isLockers ? currentLockerFloor : currentFloor;
+  const floor = list.find(f=>f.id===activeFloorId) || list[0];
+
+  const q = dashSearch.trim().toLowerCase();
+  const isAllFloors = activeFloorId === 'all';
+  let cells = '';
+  let visibleCount = 0;
+  if (isAllFloors){
+    list.forEach(f=>{
+      const result = buildFloorCells(f, isLockers, dashStatusFilter, q);
+      visibleCount += result.visibleCount;
+      cells += `<h4 style="grid-column:1/-1;font-size:12px;color:var(--muted);margin:${cells?'14px':'0'} 0 6px;">${f.label}${f.sub?' · '+f.sub:''}</h4>` + (result.html || '<p class="empty" style="grid-column:1/-1;">No matches on this floor.</p>');
+    });
+  } else {
+    const result = buildFloorCells(floor, isLockers, dashStatusFilter, q);
+    cells = result.html;
+    visibleCount = result.visibleCount;
+  }
+  if (!cells) cells = '<p class="empty" style="grid-column:1/-1;">No seats match this filter.</p>';
+
+  const filterLabel = {
+    all:'', free:'Showing free only', occupied:'Showing occupied only',
+    warning:'Showing expiring within 2 days', overdue:'Showing overdue (day of expiry) only',
+    critical:'Showing 3+ days overdue', pending:'Showing pending approval only',
+    noid:'Showing occupants missing ID proof'
+  }[dashStatusFilter];
+
+  return `
+    <div class="page-head">
+      <h2>${isLockers ? 'Locker dashboard' : 'Seat dashboard'}</h2>
+      <p>Live view of occupied and free ${isLockers ? 'lockers' : 'seats'} across both floors.</p>
+    </div>
+    <div class="floor-tabs">
+      <div class="floor-tab ${!isLockers?'active':''}" data-view="seats">Seats</div>
+      <div class="floor-tab ${isLockers?'active':''}" data-view="lockers">Lockers</div>
+    </div>
+    <div class="metrics">
+      <div class="metric-card">
+        <div class="label">Total ${isLockers?'lockers':'seats'}</div><div class="value">${total}</div>
+      </div>
+      <div class="metric-card metric-occ clickable ${dashStatusFilter==='occupied'?'active-filter':''}" data-statusfilter="occupied">
+        <div class="label">Occupied</div><div class="value">${occupied}</div>
+      </div>
+      <div class="metric-card metric-free clickable ${dashStatusFilter==='free'?'active-filter':''}" data-statusfilter="free">
+        <div class="label">Free</div><div class="value">${free}</div>
+      </div>
+      <div class="metric-card metric-warn clickable ${dashStatusFilter==='warning'?'active-filter':''}" data-statusfilter="warning">
+        <div class="label">Expiring in 2 days</div><div class="value">${warningCount}</div>
+      </div>
+    </div>
+    <div class="metrics">
+      <div class="metric-card metric-due clickable ${dashStatusFilter==='overdue'?'active-filter':''}" data-statusfilter="overdue">
+        <div class="label">Overdue (day 0)</div><div class="value">${errorCount}</div>
+      </div>
+      <div class="metric-card metric-crit clickable ${dashStatusFilter==='critical'?'active-filter':''}" data-statusfilter="critical">
+        <div class="label">Critical (1-3+ days)</div><div class="value">${criticalCount}</div>
+      </div>
+    </div>
+    ${renderCleanupPanel()}
+    <div class="card">
+      <div class="floor-tabs">
+        <div class="floor-tab ${isAllFloors?'active':''}" data-floor="all">All floors</div>
+        ${list.map(f=>`<div class="floor-tab ${f.id===activeFloorId?'active':''}" data-floor="${f.id}">${f.label}${f.sub?' · '+f.sub:''} (${f.count})</div>`).join('')}
+      </div>
+      <div class="legend">
+        <span><span class="dot" style="background:var(--free)"></span>Free</span>
+        <span><span class="dot" style="background:var(--occ)"></span>Occupied</span>
+        <span><span class="dot" style="background:var(--warn)"></span>Expiring within 2 days</span>
+        <span><span class="dot" style="background:var(--overdue)"></span>Overdue</span>
+        <span><span class="dot" style="background:var(--critical)"></span>Critical</span>
+        <span><span class="dot" style="background:var(--pend)"></span>Pending approval</span>
+        <span><span class="dot" style="background:var(--pend)"></span>● top-right = balance due</span>
+        <span><span class="dot" style="background:var(--warn)"></span>● top-left = ID missing</span>
+      </div>
+      <div class="filter-row">
+        <div class="filter-btn ${dashStatusFilter==='all'?'active':''}" data-dashfilter="all">All</div>
+        <div class="filter-btn ${dashStatusFilter==='free'?'active':''}" data-dashfilter="free">Free</div>
+        <div class="filter-btn ${dashStatusFilter==='occupied'?'active':''}" data-dashfilter="occupied">Occupied</div>
+        <div class="filter-btn ${dashStatusFilter==='warning'?'active':''}" data-dashfilter="warning">Expiring</div>
+        <div class="filter-btn ${dashStatusFilter==='overdue'?'active':''}" data-dashfilter="overdue">Overdue</div>
+        <div class="filter-btn ${dashStatusFilter==='critical'?'active':''}" data-dashfilter="critical">Critical</div>
+        <div class="filter-btn ${dashStatusFilter==='pending'?'active':''}" data-dashfilter="pending">Pending</div>
+        <div class="filter-btn ${dashStatusFilter==='noid'?'active':''}" data-dashfilter="noid">Missing ID</div>
+        <div class="search-box"><input type="text" id="dash-search" placeholder="Search name, phone, or seat #" value="${dashSearch}"></div>
+      </div>
+      ${filterLabel ? `<p style="font-size:12px;color:var(--muted);margin:-8px 0 14px;">${filterLabel} (${visibleCount} shown) — <a href="#" id="dash-clear-filter" style="color:var(--ink-light);">clear filter</a></p>` : ''}
+      <div class="seat-grid">${cells}</div>
+    </div>
+  `;
+}
+
+function renderCleanupPanel(){
+  if (!cleanupFlags.length) return '';
+  const rows = cleanupFlags.map(f=>`
+    <div class="row">
+      <span>${f.resourceType === 'seat' ? 'Seat' : 'Locker'} ${f.resourceId} <span style="color:var(--muted);">(${f.floor})</span></span>
+      <span><button class="btn btn-sm btn-outline" data-clearcleanup="${f.id}">Mark cleaned</button></span>
+    </div>
+  `).join('');
+  return `
+    <div class="card" style="border-left:4px solid var(--critical);">
+      <h3 style="font-size:15px;margin-bottom:4px;">Needs cleaning <span class="badge critical" style="margin-left:6px;">${cleanupFlags.length}</span></h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Auto-removed after being 3+ days overdue — give these a wipe-down before the next student sits there.</p>
+      ${rows}
+    </div>
+  `;
+}
+
+// ============================================================
+// Availability (public — FREE seats/lockers only, nothing else)
+// ============================================================
+function renderAvailability(){
+  const isLockers = availView === 'lockers';
+  const list = isLockers ? LOCKERS : FLOORS;
+  const floorsToShow = availFloorFilter === 'all' ? list : list.filter(f=>f.id===availFloorFilter);
+
+  const section = (f) => {
+    const freeNums = [];
+    for(let i=1;i<=f.count;i++){
+      const free = isLockers ? isLockerFree(f.id, i) : isSeatFree(f.id, i);
+      if (free) freeNums.push(i);
+    }
+    const cells = freeNums.map(i =>
+      `<div class="seat free" data-kind="${isLockers?'locker':'seat'}" data-floor="${f.id}" data-num="${i}" title="Free">${i}</div>`
+    ).join('');
+    return `
+      <div class="card">
+        <h3 style="font-size:15px;margin-bottom:14px;">${f.label}${f.sub?' · '+f.sub:''} <span style="color:var(--muted);font-weight:400;font-size:13px;">(${freeNums.length} free)</span></h3>
+        <div class="seat-grid">${cells || '<p class="empty" style="grid-column:1/-1;">No free spots on this floor right now.</p>'}</div>
+      </div>`;
+  };
+
+  const totalFreeSeats = freeSeats.length;
+  const totalFreeLockers = freeLockers.length;
+
+  return `
+    <div class="page-head">
+      <h2>Availability</h2>
+      <p>Free seats and lockers right now — click one to start a registration.</p>
+    </div>
+    <div class="metrics">
+      <div class="metric-card"><div class="label">Free seats</div><div class="value">${totalFreeSeats}</div></div>
+      <div class="metric-card"><div class="label">Free lockers</div><div class="value">${totalFreeLockers}</div></div>
+    </div>
+    <div class="floor-tabs">
+      <div class="floor-tab ${!isLockers?'active':''}" data-availview="seats">Seats</div>
+      <div class="floor-tab ${isLockers?'active':''}" data-availview="lockers">Lockers</div>
+    </div>
+    <div class="floor-tabs" id="avail-floor-filter">
+      <div class="floor-tab ${availFloorFilter==='all'?'active':''}" data-availfloor="all">All floors</div>
+      ${list.map(f=>`<div class="floor-tab ${availFloorFilter===f.id?'active':''}" data-availfloor="${f.id}">${f.label}${f.sub?' · '+f.sub:''}</div>`).join('')}
+    </div>
+    ${floorsToShow.map(f=>section(f)).join('')}
+  `;
+}
+
+// ============================================================
+// New registration (public)
+// ============================================================
+function renderRegister(){
+  if (regStep === 1) return renderRegisterRules();
+  if (regStep === 3) return renderRegisterPayment();
+  if (regStep === 4) return renderRegisterDone();
+  return renderRegisterDetails();
+}
+
+function stepProgress(step){
+  return `<p style="color:var(--muted);font-size:13px;margin-top:6px;">Step ${step} of 3</p>`;
+}
+
+function renderRegisterRules(){
+  const draft = loadRegDraft();
+  const accepted = draft ? !!draft.rulesAccepted : false;
+  return `
+    <div class="page-head">
+      <h2>Before you begin</h2>
+      ${stepProgress(1)}
+    </div>
+    <div class="card" style="max-width:640px;">
+      <div style="text-align:center;margin-bottom:20px;">
+        <img src="/logo.jpeg" alt="Vidyabhyasa" style="width:72px;height:72px;border-radius:12px;object-fit:cover;">
+      </div>
+      <h3 style="font-size:16px;margin-bottom:18px;text-align:center;">Rules & Regulations</h3>
+      <div class="grid-2" style="gap:18px 26px;margin-bottom:22px;">
+        ${RULES_TEXT.map(r=>`
+          <div style="display:flex;gap:10px;align-items:flex-start;">
+            <div style="font-size:19px;line-height:1.3;flex-shrink:0;width:26px;text-align:center;">${r.icon}</div>
+            <div>
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);font-weight:600;margin-bottom:2px;">${r.label}</div>
+              <div style="font-size:13px;color:var(--ink);line-height:1.4;">${r.text}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div style="background:var(--warn-bg);border:1px solid var(--warn);border-radius:10px;padding:14px 16px;margin-bottom:22px;">
+        ${RULES_NOTES.map((n,i)=>`<p style="font-size:12.5px;color:var(--warn-text);line-height:1.5;${i>0?'margin-top:8px;':''}">${n}</p>`).join('')}
+      </div>
+      <label style="display:flex;align-items:flex-start;gap:10px;font-weight:400;margin-bottom:0;">
+        <input type="checkbox" id="rules-accept" style="width:auto;margin:3px 0 0;" ${accepted?'checked':''}>
+        <span>I have read and agree to the rules and regulations above.</span>
+      </label>
+      <button class="btn" id="rules-continue-btn" ${accepted?'':'disabled'} style="margin-top:20px;">Continue</button>
+    </div>
+  `;
+}
+
+function renderRegisterDetails(){
+  const floor = FLOORS.find(f=>f.id===regFloor) || FLOORS[0];
+  let freeCount = 0;
+  for(let i=1;i<=floor.count;i++){
+    if (isSeatFree(floor.id, i)) freeCount++;
+  }
+
+  return `
+    <div class="page-head">
+      <h2>Your details</h2>
+      ${stepProgress(2)}
+    </div>
+    <div class="card">
+      <form id="reg-form" novalidate>
+        <div class="grid-2">
+          <div>
+            <label>Full name</label>
+            <input type="text" id="f-name" required placeholder="Student's full name">
+            <small class="field-error" id="err-name"></small>
+          </div>
+          <div>
+            <label>Phone number</label>
+            <input type="tel" id="f-phone" required placeholder="10-digit mobile number" inputmode="numeric" maxlength="10">
+            <small class="field-error" id="err-phone"></small>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div>
+            <label>Email ID</label>
+            <input type="email" id="f-email" required placeholder="name@example.com">
+            <small class="field-error" id="err-email"></small>
+          </div>
+          <div>
+            <label>Upload ID proof (photo or scan) — optional</label>
+            <input type="file" id="f-id-file" accept="image/*">
+            <div id="f-id-preview" style="display:none;margin-top:-8px;margin-bottom:16px;"></div>
+            <small class="field-error" id="err-idphoto"></small>
+            <p style="font-size:11px;color:var(--muted);margin:-10px 0 16px;">Don't have it now? You can skip this — staff will follow up to collect it.</p>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div>
+            <label>Exam preparing for</label>
+            <input type="text" id="f-exam" required placeholder="e.g. KPSC, UPSC, KAS">
+            <small class="field-error" id="err-exam"></small>
+          </div>
+          <div>
+            <label>Date of joining</label>
+            <input type="date" id="f-join" required value="${todayISO()}">
+            <small class="field-error" id="err-join"></small>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div>
+            <label>Subscription (months)</label>
+            <select id="f-months">
+              ${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}">${m} month${m>1?'s':''}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <label>Seat floor</label>
+        <div class="floor-tabs" id="reg-floor-tabs">
+          ${FLOORS.map(f=>`<div class="floor-tab ${f.id===regFloor?'active':''}" data-regfloor="${f.id}">${f.label} · ${f.sub}</div>`).join('')}
+        </div>
+        <div class="grid-2" id="reg-seat-locker-row">
+          ${renderRegisterSeatLockerInner(floor, freeCount)}
+        </div>
+        <div id="f-locker-months-wrap" style="display:none;">
+          <label>Locker subscription (months)</label>
+          <select id="f-locker-months">
+            ${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}">${m} month${m>1?'s':''}</option>`).join('')}
+          </select>
+        </div>
+        <div class="modal-actions" style="margin-top:6px;">
+          <button type="button" class="btn btn-outline" id="reg-back-btn">Back</button>
+          <button type="submit" class="btn" id="reg-details-continue">Continue to payment</button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+function renderRegisterSeatLockerInner(floor, freeCount){
+  const lockerFloorId = SEAT_TO_LOCKER_FLOOR[floor.id];
+  const lockerFloor = LOCKERS.find(f=>f.id===lockerFloorId);
+  let seatOptions = '';
+  for(let i=1;i<=floor.count;i++){
+    if (isSeatFree(floor.id, i)) seatOptions += `<option value="${seatLabel(floor.id,i)}">Seat ${i}</option>`;
+  }
+  let lockerOptions = '<option value="">No locker</option>';
+  if (lockerFloor){
+    for(let i=1;i<=lockerFloor.count;i++){
+      if (isLockerFree(lockerFloor.id, i)) lockerOptions += `<option value="${lockerLabel(lockerFloor.id,i)}">Locker ${i}</option>`;
+    }
+  }
+  return `
+    <div>
+      <label id="reg-seat-label">Available seats on ${floor.label} (${freeCount} free of ${floor.count})</label>
+      <select id="f-seat">${seatOptions || '<option value="">No free seats on this floor</option>'}</select>
+    </div>
+    <div>
+      <label>Locker on ${floor.label} (optional — ₹${LOCKER_MONTHLY}/month + ₹${LOCKER_DEPOSIT} refundable deposit)</label>
+      <select id="f-locker">${lockerOptions}</select>
+    </div>
+  `;
+}
+
+function buildUpiQrUrl(amount, note){
+  const upiUri = 'upi://pay?pa=' + encodeURIComponent(UPI_ID) + '&pn=' + encodeURIComponent(UPI_PAYEE_NAME) +
+    '&am=' + encodeURIComponent(amount) + '&cu=INR&tn=' + encodeURIComponent(note);
+  return 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=' + encodeURIComponent(upiUri);
+}
+
+// Locker adds a flat ₹200 refundable deposit plus ₹100 per month of
+// the locker term, on top of whatever the seat amount is.
+function computeLockerCharge(draft){
+  if (!draft['f-locker']) return 0;
+  const months = Number(draft['f-locker-months'] || 1);
+  return LOCKER_DEPOSIT + LOCKER_MONTHLY * months;
+}
+
+// Seat pricing follows a consistent scale: 1mo=1000, 2mo=1900,
+// 3mo=2800 — i.e. ₹100 base + ₹900/month. Extrapolated for any
+// month count so longer subscriptions still get a sensible default
+// (always editable via "Other" if a different rate applies).
+function presetForMonths(months){
+  return 100 + 900 * Number(months);
+}
+
+function renderRegisterPayment(){
+  const draft = loadRegDraft() || {};
+  const seatId = draft['f-seat'] || '';
+  const seatMonths = Number(draft['f-months'] || 1);
+  const suggestedSeatAmount = presetForMonths(seatMonths);
+  const initialAmount = draft['pay-amount'] || (PAYMENT_PRESETS.includes(suggestedSeatAmount) ? String(suggestedSeatAmount) : 'other');
+  const initialOther = draft['pay-amount-other'] || (!PAYMENT_PRESETS.includes(suggestedSeatAmount) ? suggestedSeatAmount : '');
+  const seatBase = initialAmount === 'other' ? Number(initialOther||0) : Number(initialAmount);
+  const lockerCharge = computeLockerCharge(draft);
+  const total = seatBase + lockerCharge;
+  const lockerMonths = Number(draft['f-locker-months'] || 1);
+  const payMethod = draft['pay-method'] || 'upi';
+  return `
+    <div class="page-head">
+      <h2>Payment</h2>
+      ${stepProgress(3)}
+    </div>
+    <div class="card" style="max-width:420px;">
+      <label>Payment method</label>
+      <div class="floor-tabs" id="pay-method-tabs">
+        <div class="floor-tab ${payMethod==='upi'?'active':''}" data-method="upi">UPI</div>
+        <div class="floor-tab ${payMethod==='cash'?'active':''}" data-method="cash">Cash</div>
+      </div>
+
+      <label>Seat amount</label>
+      <select id="pay-amount">${paymentAmountOptionsHTML(initialAmount)}</select>
+      <div id="pay-amount-other-wrap" style="display:${initialAmount==='other'?'block':'none'};">
+        <label>Enter amount (₹)</label>
+        <input type="number" id="pay-amount-other" min="1" value="${initialOther}">
+      </div>
+      ${draft['f-locker'] ? `<p style="font-size:13px;color:var(--muted);margin:-8px 0 14px;">+ Locker deposit ₹${LOCKER_DEPOSIT} + ₹${LOCKER_MONTHLY} × ${lockerMonths} month(s) = ₹${lockerCharge}</p>` : ''}
+      <div style="font-weight:700;font-size:17px;margin-bottom:8px;padding-top:8px;border-top:1px solid var(--line);">Total to pay: ₹<span id="pay-total-display">${total}</span></div>
+      <p style="font-size:12px;color:var(--muted);margin:0 0 16px;">Can only pay part of this now? Enter what you're paying above — staff can settle the remaining balance with you when reviewing your request.</p>
+
+      <div id="upi-pay-block" style="text-align:center;margin:16px 0;display:${payMethod==='cash'?'none':'block'};">
+        <img id="upi-qr-img" src="${buildUpiQrUrl(total || 1, 'Seat ' + seatId)}" style="width:220px;height:220px;border:1px solid var(--line);border-radius:8px;">
+        <div style="display:inline-flex;align-items:center;gap:8px;margin-top:12px;background:var(--paper-2);border:1px solid var(--line);border-radius:8px;padding:6px 8px 6px 14px;">
+          <span style="font-size:13px;font-weight:600;color:var(--ink);">${UPI_ID}</span>
+          <button type="button" class="btn btn-sm btn-outline" id="copy-upi-btn">Copy</button>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-top:8px;">Scan with any UPI app and pay the total above, then upload your screenshot below.</p>
+      </div>
+      <div id="cash-pay-block" style="margin:16px 0;display:${payMethod==='cash'?'block':'none'};">
+        <div class="notice" style="margin-bottom:0;">Hand ₹<span id="cash-total-display">${total}</span> in cash to the staff member, then submit — they'll confirm the amount when reviewing your request.</div>
+      </div>
+
+      <label id="screenshot-label">Upload payment screenshot${payMethod==='cash'?' (optional for cash)':''}</label>
+      <input type="file" id="pay-screenshot" accept="image/*">
+      <div id="pay-screenshot-preview" style="display:none;margin-top:-8px;margin-bottom:16px;"></div>
+      <small class="field-error" id="err-screenshot"></small>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" id="pay-back-btn">Back</button>
+        <button class="btn" id="pay-submit-btn">Submit registration</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderRegisterDone(){
+  const draft = loadRegDraft() || {};
+  return `
+    <div class="page-head"><h2>Request submitted</h2></div>
+    <div class="card" style="max-width:420px;text-align:center;">
+      <p style="font-size:15px;">Thanks${draft['f-name'] ? ', ' + draft['f-name'] : ''}! Your registration request has been submitted and is pending staff approval.</p>
+      <p style="color:var(--muted);font-size:13px;margin-top:10px;">You'll receive a confirmation once it's approved.</p>
+      <button class="btn" id="done-back-btn" style="margin-top:18px;">Back to availability</button>
+    </div>
+  `;
+}
+
+// ============================================================
+// Subscriptions (staff only)
+// ============================================================
+function renderSubscriptions(){
+  let list = students.slice();
+  if (subSort === 'name') list.sort((a,b)=> a.name.localeCompare(b.name));
+  else if (subSort === 'paid') list.sort((a,b)=> totalPaid(b) - totalPaid(a));
+  else list.sort((a,b)=> new Date(a.expiryDate) - new Date(b.expiryDate));
+
+  if (subFilter !== 'all') list = list.filter(s => statusOf(s) === subFilter);
+  if (subSearch.trim()){
+    const q = subSearch.trim().toLowerCase();
+    list = list.filter(s => s.name.toLowerCase().includes(q) || s.phone.includes(q) || s.seatId.toLowerCase().includes(q));
+  }
+
+  const rows = list.map(s=>{
+    const st = statusOf(s);
+    const d = daysUntil(s.expiryDate);
+    const daysLabel = (st==='overdue' || st==='critical') ? Math.abs(d)+'d overdue' : d+'d left';
+    const lst = lockerStatusOf(s);
+    const lockerCell = s.lockerId
+      ? `${s.lockerId}<br><span class="badge ${lst}" style="margin-top:2px;display:inline-block;">${lst}</span>`
+      : '<span style="color:var(--muted)">—</span>';
+    const openCharges = (s.charges || []).filter(c=>c.status==='open');
+    const balanceCell = openCharges.length
+      ? openCharges.map(c=>`<span class="badge pending" style="display:block;width:fit-content;margin-bottom:2px;">₹${c.amountDue-c.amountPaid} (${c.resourceType})</span>`).join('')
+      : '<span style="color:var(--muted)">—</span>';
+    return `
+      <tr>
+        <td>${s.name}<br><span style="color:var(--muted);font-size:12px">${s.phone}</span></td>
+        <td>${s.seatId}</td>
+        <td>${lockerCell}</td>
+        <td>${s.examPrep}</td>
+        <td>${formatDateHuman(s.expiryDate)}<br><span style="color:var(--muted);font-size:12px">${daysLabel}</span></td>
+        <td><span class="badge ${st}">${st}</span></td>
+        <td>₹${totalPaid(s)}</td>
+        <td>${balanceCell}</td>
+        <td>
+          <button class="btn btn-sm btn-outline" data-payment="${s.id}">Record payment</button>
+          <a class="btn btn-sm btn-wa" href="${waLink(s, st)}" target="_blank" rel="noopener">WhatsApp</a>
+          <button class="btn btn-sm btn-outline" data-remove="${s.id}">Remove</button>
+        </td>
+      </tr>`;
+  }).join('');
+
+  return `
+    <div class="page-head">
+      <h2>Subscriptions</h2>
+      <p>Track renewals, record payments, and send WhatsApp reminders before and after expiry.</p>
+    </div>
+    <div class="notice">WhatsApp reminders open a pre-filled chat you send manually. To automate sending later, you'd connect a WhatsApp Business API or SMS gateway. Students 3+ days overdue (critical) are automatically removed overnight and flagged for cleaning on the Dashboard.</div>
+    <div class="card">
+      <div class="filter-row">
+        <div class="filter-btn ${subFilter==='all'?'active':''}" data-filter="all">All (${students.length})</div>
+        <div class="filter-btn ${subFilter==='active'?'active':''}" data-filter="active">Active</div>
+        <div class="filter-btn ${subFilter==='warning'?'active':''}" data-filter="warning">Expiring soon</div>
+        <div class="filter-btn ${subFilter==='overdue'?'active':''}" data-filter="overdue">Overdue</div>
+        <div class="filter-btn ${subFilter==='critical'?'active':''}" data-filter="critical">Critical</div>
+        <select id="sub-sort" style="width:auto;margin:0 0 0 4px;">
+          <option value="expiry" ${subSort==='expiry'?'selected':''}>Sort: expiry date</option>
+          <option value="name" ${subSort==='name'?'selected':''}>Sort: name</option>
+          <option value="paid" ${subSort==='paid'?'selected':''}>Sort: amount paid</option>
+        </select>
+        <div class="search-box"><input type="text" id="sub-search" placeholder="Search name, phone, seat" value="${subSearch}"></div>
+      </div>
+      <table>
+        <thead><tr><th>Student</th><th>Seat</th><th>Locker</th><th>Exam</th><th>Expiry</th><th>Status</th><th>Paid</th><th>Balance</th><th>Actions</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="9" class="empty">No students match this view.</td></tr>'}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ============================================================
+// Reports (founder only)
+// ============================================================
+function reportRangeForPreset(preset){
+  const now = new Date();
+  if (preset === 'today'){
+    const d = todayISO();
+    return { from: d, to: d };
+  }
+  if (preset === 'month'){
+    const from = todayISO().slice(0,8) + '01';
+    return { from, to: todayISO() };
+  }
+  return { from: reportsFrom || todayISO(), to: reportsTo || todayISO() };
+}
+
+function bar(label, value, max){
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+  return `
+    <div class="bar-row">
+      <div class="bar-label">${label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
+      <div class="bar-value">${value}</div>
+    </div>`;
+}
+
+function renderReports(){
+  const range = reportRangeForPreset(reportsPreset);
+  const r = reportsData;
+
+  const presetTabs = `
+    <div class="floor-tabs">
+      <div class="floor-tab ${reportsPreset==='today'?'active':''}" data-reportpreset="today">Today</div>
+      <div class="floor-tab ${reportsPreset==='month'?'active':''}" data-reportpreset="month">This month</div>
+      <div class="floor-tab ${reportsPreset==='custom'?'active':''}" data-reportpreset="custom">Custom range</div>
+    </div>
+    ${reportsPreset==='custom' ? `
+      <div class="grid-2">
+        <div><label>From</label><input type="date" id="report-from" value="${range.from}"></div>
+        <div><label>To</label><input type="date" id="report-to" value="${range.to}"></div>
+      </div>
+      <button class="btn btn-outline" id="report-apply" style="margin-bottom:20px;">Apply range</button>
+    ` : ''}
+  `;
+
+  if (!r){
+    return `
+      <div class="page-head"><h2>Reports</h2><p>Revenue and activity for a day, month, or custom range.</p></div>
+      ${presetTabs}
+      <p class="empty">Loading report…</p>
+    `;
+  }
+
+  const maxFloor = Math.max(1, ...Object.values(r.registrations.byFloor));
+  const floorLabels = { F1:'First floor', F2:'Second floor' };
+  const maxExam = Math.max(1, ...r.topExams.map(e=>e.count));
+
+  return `
+    <div class="page-head">
+      <h2>Reports</h2>
+      <p>${range.from} to ${range.to}</p>
+    </div>
+    ${r.emailConfigured === false ? `<div class="notice" style="background:var(--critical-bg);border-color:var(--critical);color:var(--critical-text);">Email isn't sending — <strong>RESEND_API_KEY</strong> and/or <strong>RESEND_FROM_EMAIL</strong> aren't set in Vercel's environment variables, so approval and bill emails are being silently skipped. Add both in your Vercel project settings, then redeploy.</div>` : ''}
+    ${presetTabs}
+
+    <h3 style="font-size:15px;margin:8px 0 14px;">Revenue</h3>
+    <div class="metrics">
+      <div class="metric-card"><div class="label">Total collected</div><div class="value">₹${r.revenue.total}</div></div>
+      <div class="metric-card"><div class="label">Registrations</div><div class="value">₹${r.revenue.registration}</div></div>
+      <div class="metric-card"><div class="label">Renewals</div><div class="value">₹${r.revenue.renewal}</div></div>
+      <div class="metric-card"><div class="label">Lockers</div><div class="value">₹${r.revenue.locker}</div></div>
+    </div>
+    <div class="metrics">
+      <div class="metric-card"><div class="label">Payments logged</div><div class="value">${r.revenue.paymentCount}</div></div>
+      <div class="metric-card"><div class="label">Avg payment</div><div class="value">₹${r.revenue.avgPayment}</div></div>
+      <div class="metric-card"><div class="label">New registrations</div><div class="value">${r.registrations.count}</div></div>
+      <div class="metric-card"><div class="label">Avg subscription</div><div class="value">${r.registrations.avgDurationMonths}mo</div></div>
+    </div>
+    <div class="metrics">
+      <div class="metric-card"><div class="label">Cash collected</div><div class="value">₹${r.revenue.cash}</div></div>
+      <div class="metric-card"><div class="label">UPI collected</div><div class="value">₹${r.revenue.upi}</div></div>
+    </div>
+
+    <h3 style="font-size:15px;margin:20px 0 14px;">Current snapshot</h3>
+    <div class="metrics">
+      <div class="metric-card"><div class="label">Active students</div><div class="value">${r.snapshot.totalActiveStudents}</div></div>
+      <div class="metric-card"><div class="label">Seat occupancy</div><div class="value">${r.snapshot.seatOccupancyPct}%</div></div>
+      <div class="metric-card"><div class="label">Locker occupancy</div><div class="value">${r.snapshot.lockerOccupancyPct}%</div></div>
+      <div class="metric-card metric-warn"><div class="label">Expiring in 2 days</div><div class="value">${r.snapshot.warningCount}</div></div>
+    </div>
+    <div class="metrics">
+      <div class="metric-card metric-due"><div class="label">Overdue</div><div class="value">${r.snapshot.overdueCount}</div></div>
+      <div class="metric-card metric-crit"><div class="label">Critical (3+ days)</div><div class="value">${r.snapshot.criticalCount}</div></div>
+      <div class="metric-card"><div class="label">Needs cleaning</div><div class="value">${r.snapshot.needsCleaning}</div></div>
+      <div class="metric-card metric-warn"><div class="label">Outstanding balance</div><div class="value">₹${r.snapshot.outstandingBalance}</div></div>
+    </div>
+    ${r.snapshot.openChargesCount ? `<p style="font-size:12px;color:var(--muted);margin:-14px 0 20px;">${r.snapshot.openChargesCount} open partial-payment charge${r.snapshot.openChargesCount>1?'s':''} across all students.</p>` : ''}
+
+    <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+      <div class="card">
+        <h3 style="font-size:15px;margin-bottom:16px;">New registrations by floor</h3>
+        ${Object.keys(r.registrations.byFloor).length
+          ? Object.entries(r.registrations.byFloor).map(([f,c])=>bar(floorLabels[f]||f, c, maxFloor)).join('')
+          : '<p class="empty">No registrations in this range.</p>'}
+        <p style="font-size:12px;color:var(--muted);margin-top:10px;">Locker attach rate: ${r.registrations.lockerAttachRate}% of new registrations also took a locker.</p>
+      </div>
+      <div class="card">
+        <h3 style="font-size:15px;margin-bottom:16px;">Top exams (new registrations)</h3>
+        ${r.topExams.length
+          ? r.topExams.map(e=>bar(e.exam, e.count, maxExam)).join('')
+          : '<p class="empty">No registrations in this range.</p>'}
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// Pending approvals (staff only)
+// ============================================================
+async function loadPendingList(){
+  try{
+    const data = await apiGet('/api/pending');
+    pendingList = data.pending || [];
+  }catch(e){
+    pendingList = [];
+    showToast(e.message || 'Failed to load pending requests');
+  }
+}
+
+async function loadCleanupFlags(){
+  try{
+    const data = await apiGet('/api/cleanup');
+    cleanupFlags = data.flags || [];
+  }catch(e){
+    cleanupFlags = [];
+  }
+}
+
+async function loadAuditLog(){
+  try{
+    const data = await apiGet('/api/audit-log');
+    auditEntries = data.entries || [];
+  }catch(e){
+    auditEntries = [];
+    showToast(e.message || 'Failed to load audit log');
+  }
+}
+
+function timeAgo(isoString){
+  const then = new Date(isoString);
+  const diffMs = Date.now() - then.getTime();
+  const mins = Math.round(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + ' min ago';
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return hours + ' hour' + (hours>1?'s':'') + ' ago';
+  const days = Math.round(hours / 24);
+  return days + ' day' + (days>1?'s':'') + ' ago';
+}
+
+function renderAuditLog(){
+  const actionLabels = {
+    approve_pending: 'Approved registration', reject_pending: 'Rejected registration',
+    edit_pending: 'Edited pending request', edit_student: 'Edited student details',
+    remove_student: 'Removed student', record_payment: 'Recorded payment',
+    edit_payment: 'Edited payment', delete_payment: 'Deleted payment',
+    assign_locker: 'Assigned locker', remove_locker: 'Removed locker',
+    swap_seat: 'Moved seat', swap_locker: 'Moved locker', resend_bill: 'Resent bill',
+    cancel_charge: 'Cancelled partial-payment charge'
+  };
+  const rows = auditEntries.map(e=>`
+    <tr>
+      <td style="white-space:nowrap;">${timeAgo(e.createdAt)}<br><span style="color:var(--muted);font-size:11px;">${formatDateTimeIST(e.createdAt)}</span></td>
+      <td>${e.actorName || '—'}</td>
+      <td>${actionLabels[e.action] || e.action}</td>
+      <td>${e.details || ''}</td>
+    </tr>
+  `).join('');
+  return `
+    <div class="page-head">
+      <h2>Audit log</h2>
+      <p>Every approval, edit, removal, and payment change made by staff — most recent first.</p>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th>When</th><th>Staff</th><th>Action</th><th>Details</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="4" class="empty">No activity logged yet.</td></tr>'}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderPending(){
+  if (!pendingList.length){
+    return `
+      <div class="page-head"><h2>Pending approvals</h2><p>New registration requests waiting for review.</p></div>
+      <p class="empty">No pending requests right now.</p>
+    `;
+  }
+  const cards = pendingList.map(p=>`
+    <div class="card" id="pending-card-${p.id}" style="padding:0;overflow:hidden;">
+      <div style="padding:20px 24px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;background:var(--paper-2);border-bottom:1px solid var(--line);">
+        <div>
+          <h3 style="font-size:17px;">${p.name}</h3>
+          <p style="color:var(--muted);font-size:13px;margin-top:3px;">${p.phone}${p.email?' · '+p.email:''}</p>
+        </div>
+        <div style="text-align:right;">
+          <span class="badge pending">pending</span>
+          <p style="color:var(--muted);font-size:11px;margin-top:6px;">${timeAgo(p.createdAt)}</p>
+        </div>
+      </div>
+      <div style="padding:20px 24px;">
+        <div class="grid-2" style="gap:0 28px;">
+          <div>
+            <p style="font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin-bottom:8px;font-weight:600;">Requested</p>
+            <div class="row"><span>Seat</span><span style="font-weight:600;">${p.seatId}</span></div>
+            ${p.lockerId ? `<div class="row"><span>Locker</span><span style="font-weight:600;">${p.lockerId}</span></div>` : ''}
+            <div class="row"><span>Exam</span><span>${p.examPrep}</span></div>
+            <div class="row"><span>Joining</span><span>${formatDateHuman(p.joinDate)}</span></div>
+          </div>
+          <div>
+            <p style="font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin-bottom:8px;font-weight:600;">Subscription & payment</p>
+            <div class="row"><span>Seat term</span><span>${p.durationMonths} month${p.durationMonths>1?'s':''}</span></div>
+            ${p.lockerId ? `<div class="row"><span>Locker term</span><span>${p.lockerMonths} month${p.lockerMonths>1?'s':''}</span></div>` : ''}
+            <div class="row"><span>Amount due</span><span>₹${p.amountDue}</span></div>
+            <div class="row"><span>Amount claimed</span><span style="font-weight:600;">₹${p.amount}</span></div>
+            <div class="row"><span>Payment method</span><span style="font-weight:600;text-transform:capitalize;">${p.paymentMethod === 'cash' ? 'Cash' : 'UPI'}</span></div>
+          </div>
+        </div>
+        ${p.amount < p.amountDue ? `<div class="notice" style="margin-top:16px;background:var(--warn-bg);border-color:var(--warn);color:var(--warn-text);">Partial payment — ₹${p.amountDue - p.amount} short of the ₹${p.amountDue} due. Approving will still grant the full requested term, with the shortfall tracked as an open balance payable later.</div>` : ''}
+        ${!p.hasIdPhoto ? `<div class="notice" style="margin-top:16px;background:var(--warn-bg);border-color:var(--warn);color:var(--warn-text);">No ID proof was uploaded — you can still approve, but flag this so someone follows up to collect it (it'll show as "Missing ID" on the Dashboard afterward).</div>` : ''}
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+          ${p.hasIdPhoto ? `<button class="btn btn-outline btn-sm" data-fetchphoto="${p.id}">View ID photo</button>` : ''}
+          ${p.hasPaymentScreenshot ? `<button class="btn btn-outline btn-sm" data-fetchpayment="${p.id}">View payment screenshot</button>` : ''}
+          <button class="btn btn-outline btn-sm" data-editpending="${p.id}">Edit details</button>
+        </div>
+        <div id="photo-preview-${p.id}" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;"></div>
+        <div style="margin-top:16px;display:flex;gap:10px;">
+          <button class="btn" style="background:var(--free);border-color:var(--free);flex:1;justify-content:center;" data-approve="${p.id}">Approve</button>
+          <button class="btn btn-outline" style="flex:1;justify-content:center;" data-reject="${p.id}">Reject</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  return `
+    <div class="page-head"><h2>Pending approvals</h2><p>${pendingList.length} request${pendingList.length===1?'':'s'} waiting for review.</p></div>
+    ${cards}
+  `;
+}
+
+function showEditPendingModal(pendingId){
+  const p = pendingList.find(x=>x.id===pendingId);
+  if (!p) return;
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Edit request</h3>
+        <label>Full name</label>
+        <input type="text" id="ep-name" value="${p.name}">
+        <label>Phone</label>
+        <input type="tel" id="ep-phone" value="${p.phone}" maxlength="10">
+        <label>Email</label>
+        <input type="email" id="ep-email" value="${p.email||''}">
+        <label>Exam</label>
+        <input type="text" id="ep-exam" value="${p.examPrep}">
+        <label>Date of joining</label>
+        <input type="date" id="ep-join" value="${p.joinDate}">
+        <label>Subscription (months)</label>
+        <select id="ep-months">${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}" ${m==p.durationMonths?'selected':''}>${m} month${m>1?'s':''}</option>`).join('')}</select>
+        ${p.lockerId ? `<label>Locker subscription (months)</label>
+        <select id="ep-locker-months">${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}" ${m==p.lockerMonths?'selected':''}>${m} month${m>1?'s':''}</option>`).join('')}</select>` : ''}
+        <label>Amount</label>
+        <input type="number" id="ep-amount" value="${p.amount}" min="1">
+        <div class="modal-actions">
+          <button class="btn" id="ep-save">Save changes</button>
+          <button class="btn btn-outline" id="close-modal">Close</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+  document.getElementById('ep-save').onclick = async ()=>{
+    const phoneVal = digitsOnly(document.getElementById('ep-phone').value);
+    if (!isValidPhone(phoneVal)){ showToast('Phone number must be exactly 10 digits'); return; }
+    const fields = {
+      name: document.getElementById('ep-name').value.trim(),
+      phone: phoneVal,
+      email: document.getElementById('ep-email').value.trim() || null,
+      examPrep: document.getElementById('ep-exam').value.trim(),
+      joinDate: document.getElementById('ep-join').value,
+      durationMonths: Number(document.getElementById('ep-months').value),
+      amount: Number(document.getElementById('ep-amount').value)
+    };
+    const lockerMonthsEl = document.getElementById('ep-locker-months');
+    if (lockerMonthsEl) fields.lockerMonths = Number(lockerMonthsEl.value);
+    try{
+      await apiPost('/api/pending', { action: 'edit', pendingId, fields });
+      await loadPendingList();
+      closeModal(); render(); showToast('Request updated');
+    }catch(err){ showToast(err.message || 'Failed to save changes'); }
+  };
+}
+
+function showRejectModal(pendingId){
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Reject request</h3>
+        <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">The seat/locker will become available again immediately.</p>
+        <label>Reason (optional, shown in records)</label>
+        <input type="text" id="reject-reason" placeholder="e.g. Payment screenshot unclear">
+        <div class="modal-actions">
+          <button class="btn" id="reject-confirm" style="background:var(--occ);border-color:var(--occ);">Reject request</button>
+          <button class="btn btn-outline" id="close-modal">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+  document.getElementById('reject-confirm').onclick = async ()=>{
+    const reason = document.getElementById('reject-reason').value.trim();
+    try{
+      await apiPost('/api/pending', { action: 'reject', pendingId, reason });
+      await loadPendingList(); await loadPublicAvailability();
+      closeModal(); render(); showToast('Request rejected — seat is free again');
+    }catch(err){ showToast(err.message || 'Failed to reject request'); }
+  };
+}
+
+// ============================================================
+// Modals
+// ============================================================
+function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
+
+// ============================================================
+// Image viewing — enlarge in-page (no new tab/window) with a
+// loading spinner until the image actually arrives.
+// ============================================================
+function showImageLightbox(src, title){
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="lightbox-ov" style="z-index:200;">
+      <div style="max-width:92vw;max-height:92vh;position:relative;">
+        <div style="position:absolute;top:-42px;left:0;background:#fff;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700;">${title||''}</div>
+        <button class="btn btn-outline" id="lightbox-close" style="position:absolute;top:-46px;right:0;background:#fff;">Close</button>
+        <div id="lightbox-loader" style="width:280px;height:280px;max-width:80vw;max-height:70vh;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;">
+          <div class="spinner"></div>
+        </div>
+        <img id="lightbox-img" alt="${title||''}" style="display:none;max-width:92vw;max-height:88vh;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,0.35);">
+      </div>
+    </div>`;
+  const ov = document.getElementById('lightbox-ov');
+  ov.onclick = (e)=>{ if (e.target.id==='lightbox-ov') closeModal(); };
+  document.getElementById('lightbox-close').onclick = closeModal;
+
+  const img = document.getElementById('lightbox-img');
+  const loader = document.getElementById('lightbox-loader');
+  img.onload = ()=>{ loader.style.display = 'none'; img.style.display = 'block'; };
+  img.onerror = ()=>{ loader.innerHTML = '<p style="color:var(--occ-text);font-size:13px;padding:0 16px;text-align:center;">Could not load this image.</p>'; };
+  img.src = src;
+}
+
+// Renders a loading spinner into `wrap`, then swaps in the actual
+// thumbnail once it loads. Clicking the thumbnail opens the full
+// size version via showImageLightbox (same window, not a new tab).
+function renderLoadableThumb(wrap, src, title){
+  const uid = 'thumb-' + Math.random().toString(36).slice(2);
+  const holder = document.createElement('div');
+  holder.style.display = 'inline-block';
+  holder.style.margin = '0 12px 8px 0';
+  holder.style.verticalAlign = 'top';
+  const tagColor = /payment/i.test(title||'') ? 'background:#e8f1ff;color:#1a56c4;' : 'background:#fff3e0;color:#b45309;';
+  holder.innerHTML = `
+    <div style="display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:999px;margin-bottom:6px;${tagColor}">${/payment/i.test(title||'') ? 'Payment screenshot' : 'ID proof'}</div>
+    <div class="thumb-box" id="${uid}-loader"><div class="spinner sm"></div></div>
+    <img id="${uid}-img" alt="${title||''}" title="${title||''} — click to enlarge"
+         style="display:none;max-width:160px;max-height:160px;border-radius:8px;border:1px solid var(--line);cursor:pointer;">
+  `;
+  wrap.appendChild(holder);
+  const img = holder.querySelector('#' + uid + '-img');
+  const loader = holder.querySelector('#' + uid + '-loader');
+  img.onload = ()=>{ loader.style.display = 'none'; img.style.display = 'block'; };
+  img.onerror = ()=>{ loader.innerHTML = '<span style="font-size:10px;color:var(--occ-text);text-align:center;padding:4px;">Failed to load</span>'; };
+  img.onclick = ()=> showImageLightbox(src, title);
+  img.src = src;
+}
+
+function showPublicResourceModal(kind, floorId, num){
+  const label = kind === 'seat' ? seatLabel(floorId, num) : lockerLabel(floorId, num);
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>${kind === 'seat' ? 'Seat' : 'Locker'} ${label}</h3>
+        <p style="color:var(--muted);font-size:13px;margin:8px 0 16px;">This ${kind} is currently free.</p>
+        <div class="modal-actions">
+          ${kind === 'seat' ? `<button class="btn" id="go-register">Register a student here</button>` : ''}
+          <button class="btn btn-outline" id="close-modal">Close</button>
+        </div>
+      </div>
+    </div>`;
+  const goBtn = document.getElementById('go-register');
+  if (goBtn) goBtn.onclick = ()=>{
+    regFloor = floorId;
+    const existing = loadRegDraft() || {};
+    existing['f-seat'] = label;
+    existing.regFloor = floorId;
+    try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
+    closeModal();
+    navigateTo('register', { step: 1 });
+  };
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+}
+
+function showPendingHoldModal(kind, floorId, num){
+  const p = pendingHolds(kind, floorId, num);
+  const label = kind === 'seat' ? seatLabel(floorId, num) : lockerLabel(floorId, num);
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>${kind === 'seat' ? 'Seat' : 'Locker'} ${label}</h3>
+        <span class="badge pending" style="margin-top:4px;display:inline-block;">pending approval</span>
+        ${p ? `
+          <div style="margin-top:14px;">
+            <div class="row"><span>Requested by</span><span>${p.name}</span></div>
+            <div class="row"><span>Phone</span><span>${p.phone}</span></div>
+          </div>` : ''}
+        <p style="color:var(--muted);font-size:13px;margin:12px 0 16px;">This ${kind} is held by a registration request awaiting review — it isn't free, but it isn't a confirmed occupant yet either.</p>
+        <div class="modal-actions">
+          <button class="btn" id="go-pending">Review in Pending approvals</button>
+          <button class="btn btn-outline" id="close-modal">Close</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('go-pending').onclick = ()=>{ closeModal(); navigateTo('pending'); };
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+}
+
+function showStaffSeatModal(kind, floorId, num){
+  if (kind === 'locker') return showStaffLockerModal(floorId, num);
+  const occ = occupantOf(floorId, num);
+  const modalRoot = document.getElementById('modal-root');
+  if (!occ){
+    modalRoot.innerHTML = `
+      <div class="modal-overlay" id="ov">
+        <div class="modal">
+          <h3>Seat ${seatLabel(floorId,num)}</h3>
+          <p style="color:var(--muted);font-size:13px;margin:8px 0 16px;">This seat is currently free.</p>
+          <div class="modal-actions">
+            <button class="btn" id="go-register">Register a student here</button>
+            <button class="btn btn-outline" id="close-modal">Close</button>
+          </div>
+        </div>
+      </div>`;
+    document.getElementById('go-register').onclick = async ()=>{
+      regFloor = floorId;
+      const existing = loadRegDraft() || {};
+      existing['f-seat'] = seatLabel(floorId,num);
+      existing.regFloor = floorId;
+      try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
+      closeModal();
+      await navigateTo('register', { step: 1 });
+    };
+    document.getElementById('close-modal').onclick = closeModal;
+    document.getElementById('ov').onclick = (e)=>{ if(e.target.id==='ov') closeModal(); };
+    return;
+  }
+
+  const st = statusOf(occ);
+  const seatCharge = openChargeFor(occ, 'seat');
+  const lockerCharge = openChargeFor(occ, 'locker');
+
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal" style="width:460px;padding:0;">
+        <div style="padding:20px 24px;background:var(--paper-2);border-bottom:1px solid var(--line);border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+          <div>
+            <h3 style="font-size:17px;">${occ.name}</h3>
+            <p style="color:var(--muted);font-size:13px;margin-top:3px;">${occ.phone}${occ.email ? ' · ' + occ.email : ''}</p>
+          </div>
+          <span class="badge ${st}" style="flex-shrink:0;">${st}</span>
+        </div>
+
+        <div style="padding:20px 24px;">
+          ${(seatCharge || lockerCharge || !occ.hasIdPhoto) ? `
+          <div style="margin-bottom:16px;display:flex;flex-direction:column;gap:8px;">
+            ${seatCharge ? `<div style="background:var(--warn-bg);border:1px solid var(--warn);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--warn-text);display:flex;justify-content:space-between;"><span>Seat balance due</span><strong>₹${seatCharge.amountDue - seatCharge.amountPaid}</strong></div>` : ''}
+            ${lockerCharge ? `<div style="background:var(--warn-bg);border:1px solid var(--warn);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--warn-text);display:flex;justify-content:space-between;"><span>Locker balance due</span><strong>₹${lockerCharge.amountDue - lockerCharge.amountPaid}</strong></div>` : ''}
+            ${!occ.hasIdPhoto ? `<div style="background:var(--warn-bg);border:1px solid var(--warn);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--warn-text);display:flex;justify-content:space-between;align-items:center;"><span>ID proof not on file</span><button class="btn btn-sm btn-outline" id="upload-id-btn" style="background:#fff;">Upload now</button></div>` : ''}
+          </div>` : ''}
+
+          <div class="grid-2" style="gap:0 28px;">
+            <div>
+              <p style="font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin-bottom:8px;font-weight:600;">Placement</p>
+              <div class="row"><span>Seat</span><span style="font-weight:600;">${occ.seatId}</span></div>
+              <div class="row"><span>Locker</span><span style="font-weight:600;">${occ.lockerId || '—'}</span></div>
+              <div class="row"><span>Exam</span><span>${occ.examPrep}</span></div>
+            </div>
+            <div>
+              <p style="font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin-bottom:8px;font-weight:600;">Subscription</p>
+              <div class="row"><span>Joined</span><span>${formatDateHuman(occ.joinDate)}</span></div>
+              <div class="row"><span>Expires</span><span>${formatDateHuman(occ.expiryDate)}</span></div>
+              <div class="row"><span>Total paid</span><span style="font-weight:600;">₹${totalPaid(occ)}</span></div>
+            </div>
+          </div>
+
+          ${occ.hasIdPhoto ? `<div id="id-photo-wrap" style="margin-top:16px;"></div>` : ''}
+
+          <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line);">
+            <p style="font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin-bottom:8px;font-weight:600;">Send a reminder</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <a class="btn btn-sm btn-wa" href="${waLink(occ, 'warning')}" target="_blank" rel="noopener">Expiring</a>
+              <a class="btn btn-sm btn-wa" href="${waLink(occ, 'overdue')}" target="_blank" rel="noopener">Overdue</a>
+              <a class="btn btn-sm btn-wa" href="${waLink(occ, 'critical')}" target="_blank" rel="noopener">Critical</a>
+            </div>
+          </div>
+
+          <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn" id="record-payment" data-id="${occ.id}">Record payment</button>
+            <button class="btn btn-outline" id="share-bill" data-id="${occ.id}">Share bill</button>
+            ${!occ.lockerId ? `<button class="btn btn-outline" id="assign-locker" data-id="${occ.id}">Assign locker</button>` : ''}
+            <button class="btn btn-outline" id="edit-student" data-id="${occ.id}">Edit details</button>
+            <button class="btn btn-outline" id="move-seat" data-id="${occ.id}">Move seat</button>
+            ${occ.lockerId ? `<button class="btn btn-outline" id="move-locker" data-id="${occ.id}">Move locker</button>` : ''}
+            <button class="btn btn-outline" id="payment-history" data-id="${occ.id}">Payment history</button>
+          </div>
+
+          <div style="margin-top:14px;display:flex;gap:8px;">
+            <button class="btn btn-outline" id="remove-student" data-id="${occ.id}" style="flex:1;justify-content:center;color:var(--critical);border-color:var(--critical);">Remove student</button>
+            <button class="btn btn-outline" id="close-modal" style="flex:1;justify-content:center;">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('remove-student').onclick = ()=> showRemoveReasonModal(occ.id, ()=>render());
+  document.getElementById('record-payment').onclick = ()=> showPaymentModal(occ.id);
+  document.getElementById('edit-student').onclick = ()=> showEditStudentModal(occ.id);
+  document.getElementById('move-seat').onclick = ()=> showSwapModal(occ.id, 'seat');
+  document.getElementById('share-bill').onclick = ()=> showShareBillModal(occ.id);
+  document.getElementById('payment-history').onclick = ()=> showPaymentHistoryModal(occ.id);
+  const moveLockerBtn = document.getElementById('move-locker');
+  if (moveLockerBtn) moveLockerBtn.onclick = ()=> showSwapModal(occ.id, 'locker');
+  const assignBtn = document.getElementById('assign-locker');
+  if (assignBtn) assignBtn.onclick = ()=> showAssignLockerModal(occ.id);
+  const uploadIdBtn = document.getElementById('upload-id-btn');
+  if (uploadIdBtn) uploadIdBtn.onclick = ()=> showUploadIdModal(occ.id);
+  if (occ.hasIdPhoto){
+    renderLoadableThumb(document.getElementById('id-photo-wrap'), '/api/students?photo=1&id=' + occ.id, 'ID proof');
+  }
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if(e.target.id==='ov') closeModal(); };
+}
+
+function showUploadIdModal(studentId){
+  const s = students.find(x=>x.id===studentId);
+  if (!s) return;
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Upload ID proof</h3>
+        <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">${s.name}</p>
+        <label>Photo or scan</label>
+        <input type="file" id="upload-id-file" accept="image/*">
+        <div id="upload-id-preview" style="display:none;margin-top:-8px;margin-bottom:16px;"></div>
+        <small class="field-error" id="err-upload-id"></small>
+        <div class="modal-actions">
+          <button class="btn" id="upload-id-submit">Save</button>
+          <button class="btn btn-outline" id="close-modal">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('close-modal').onclick = ()=> showStaffSeatModal('seat', s.floor, Number(s.seatId.split('-')[1]));
+  document.getElementById('ov').onclick = (e)=>{ if(e.target.id==='ov') showStaffSeatModal('seat', s.floor, Number(s.seatId.split('-')[1])); };
+
+  const fileInput = document.getElementById('upload-id-file');
+  const preview = document.getElementById('upload-id-preview');
+  fileInput.onchange = async ()=>{
+    const file = fileInput.files[0];
+    if (!file){ preview.style.display = 'none'; preview.innerHTML=''; return; }
+    clearFieldError('upload-id-file','err-upload-id');
+    preview.style.display = 'block';
+    preview.innerHTML = '<div class="spinner sm"></div>';
+    try{
+      const raw = await readFileAsDataURL(file);
+      const resized = await resizeImageDataURL(raw, 900, 0.72);
+      fileInput.dataset.resized = resized;
+      preview.innerHTML = `<img src="${resized}" style="max-width:140px;max-height:100px;border-radius:6px;border:1px solid var(--line);">`;
+    }catch(err){
+      preview.style.display = 'none';
+      preview.innerHTML = '';
+      fileInput.value = '';
+      showFieldError('upload-id-file','err-upload-id', err.message || 'Could not use this photo.');
+    }
+  };
+
+  document.getElementById('upload-id-submit').onclick = async ()=>{
+    if (!fileInput.dataset.resized){ showFieldError('upload-id-file','err-upload-id','Choose a photo first.'); return; }
+    const submitBtn = document.getElementById('upload-id-submit');
+    submitBtn.disabled = true; submitBtn.textContent = 'Saving…';
+    try{
+      await apiPost('/api/student-actions', { action: 'uploadIdPhoto', studentId, photoBase64: fileInput.dataset.resized });
+      await loadFullStudents();
+      closeModal();
+      showStaffSeatModal('seat', s.floor, Number(s.seatId.split('-')[1]));
+      showToast('ID photo saved');
+    }catch(err){
+      showToast(err.message || 'Failed to upload');
+      submitBtn.disabled = false; submitBtn.textContent = 'Save';
+    }
+  };
+}
+
+
+function showStaffLockerModal(floorId, num){
+  const label = lockerLabel(floorId, num);
+  const occ = lockerOccupantOf(floorId, num);
+  const modalRoot = document.getElementById('modal-root');
+  if (!occ){
+    const eligible = students.filter(s => !s.lockerId || lockerStatusOf(s) === 'overdue' || lockerStatusOf(s) === 'critical');
+    const options = eligible.map(s => `<option value="${s.id}">${s.name} — seat ${s.seatId}</option>`).join('');
+    modalRoot.innerHTML = `
+      <div class="modal-overlay" id="ov">
+        <div class="modal">
+          <h3>Locker ${label}</h3>
+          <p style="color:var(--muted);font-size:13px;margin:8px 0 16px;">This locker is currently free.</p>
+          ${eligible.length ? `
+            <label>Assign to student</label>
+            <select id="al-student">${options}</select>
+            <label>Subscription (months)</label>
+            <select id="al-months">${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}">${m} month${m>1?'s':''}</option>`).join('')}</select>
+            <p style="font-size:12px;color:var(--muted);margin:-8px 0 14px;">Amount due: ₹<span id="al-due-display">${LOCKER_DEPOSIT + LOCKER_MONTHLY}</span> (₹${LOCKER_DEPOSIT} deposit + ₹${LOCKER_MONTHLY}/month)</p>
+            <label>Amount paid (₹)</label>
+            <input type="number" id="al-amount" min="1" value="${LOCKER_DEPOSIT + LOCKER_MONTHLY}">
+          ` : `<p style="color:var(--muted);font-size:13px;">No registered students are currently without a locker.</p>`}
+          <div class="modal-actions">
+            ${eligible.length ? '<button class="btn" id="al-submit">Assign locker</button>' : ''}
+            <button class="btn btn-outline" id="close-modal">Close</button>
+          </div>
+        </div>
+      </div>`;
+    if (eligible.length){
+      const monthsSel = document.getElementById('al-months');
+      const amountInput = document.getElementById('al-amount');
+      const dueDisplay = document.getElementById('al-due-display');
+      monthsSel.onchange = ()=>{
+        const due = LOCKER_DEPOSIT + LOCKER_MONTHLY * Number(monthsSel.value);
+        dueDisplay.textContent = due;
+        amountInput.value = due;
+      };
+      document.getElementById('al-submit').onclick = async ()=>{
+        const sid = document.getElementById('al-student').value;
+        const months = monthsSel.value;
+        const amount = Number(amountInput.value || 0);
+        if (amount<=0){ showToast('Enter a valid amount'); return; }
+        try{
+          await apiPost('/api/student-actions', { action: 'locker', studentId: sid, lockerId: label, floorId, months, amount });
+          await loadFullStudents(); await loadPublicAvailability();
+          closeModal(); render(); showToast('Locker ' + label + ' assigned');
+        }catch(err){ showToast(err.message); }
+      };
+    }
+  } else {
+    const lst = lockerStatusOf(occ);
+    modalRoot.innerHTML = `
+      <div class="modal-overlay" id="ov">
+        <div class="modal">
+          <h3>${occ.name}</h3>
+          <span class="badge ${lst}" style="margin-top:4px;display:inline-block;">${lst}</span>
+          <div style="margin-top:14px;">
+            <div class="row"><span>Locker</span><span>${occ.lockerId}</span></div>
+            <div class="row"><span>Seat</span><span>${occ.seatId}</span></div>
+            <div class="row"><span>Phone</span><span>${occ.phone}</span></div>
+            <div class="row"><span>Locker joined</span><span>${occ.lockerJoinDate}</span></div>
+            <div class="row"><span>Locker expires</span><span>${occ.lockerExpiryDate}</span></div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" id="record-payment" data-id="${occ.id}">Record payment</button>
+            <a class="btn btn-wa" href="${lockerWaLink(occ, lst)}" target="_blank" rel="noopener">WhatsApp</a>
+            <button class="btn btn-outline" id="move-locker" data-id="${occ.id}">Move locker</button>
+            <button class="btn btn-outline" id="unassign-locker" data-id="${occ.id}">Remove locker</button>
+            <button class="btn btn-outline" id="close-modal">Close</button>
+          </div>
+        </div>
+      </div>`;
+    document.getElementById('record-payment').onclick = ()=> showPaymentModal(occ.id);
+    document.getElementById('move-locker').onclick = ()=> showSwapModal(occ.id, 'locker');
+    document.getElementById('unassign-locker').onclick = async ()=>{
+      try{
+        await apiPost('/api/student-actions', { action: 'locker', lockerAction: 'remove', studentId: occ.id });
+        await loadFullStudents(); await loadPublicAvailability();
+        closeModal(); render(); showToast('Locker removed from ' + occ.name);
+      }catch(err){
+        showToast(err.message || 'Failed to remove locker');
+      }
+    };
+  }
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if(e.target.id==='ov') closeModal(); };
+}
+
+function openChargeFor(student, resourceType){
+  return (student.charges || []).find(c => c.resourceType === resourceType && c.status === 'open');
+}
+
+function showPaymentModal(studentId){
+  const s = students.find(x=>x.id===studentId);
+  if (!s) return;
+  const hasLocker = !!s.lockerId;
+  const seatCharge = openChargeFor(s, 'seat');
+  const lockerCharge = hasLocker ? openChargeFor(s, 'locker') : null;
+  const monthOptions = (id)=>`<select id="${id}">${Array.from({length:9},(_,i)=>i+4).map(m=>`<option value="${m}">${m} months</option>`).join('')}</select>`;
+
+  function resourceBlock(kind, charge){
+    const label = kind === 'seat' ? 'Seat' : 'Locker';
+    if (charge){
+      const remaining = charge.amountDue - charge.amountPaid;
+      return `
+        <div style="border:1px solid var(--warn);background:var(--warn-bg);border-radius:10px;padding:12px 14px;margin-bottom:16px;">
+          <p style="font-size:13px;font-weight:600;color:var(--warn-text);margin-bottom:4px;">${label} — open balance</p>
+          <p style="font-size:13px;color:var(--warn-text);margin-bottom:10px;">${charge.months > 0 ? charge.months + ' month renewal' : 'Outstanding balance from registration'} — ₹${charge.amountPaid} of ₹${charge.amountDue} paid, <strong>₹${remaining} remaining</strong></p>
+          <label>Add payment (₹)</label>
+          <input type="number" id="${kind}-pay-amount" min="1" max="${remaining}" value="${remaining}" data-mode="charge" data-charge-id="${charge.id}">
+          <button type="button" class="btn btn-sm btn-outline" id="${kind}-cancel-charge" data-charge-id="${charge.id}">Cancel this charge</button>
+        </div>`;
+    }
+    return `
+      <div style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:16px;">
+        <p style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:10px;">${label}</p>
+        <label>Extend by</label>
+        <div class="floor-tabs" id="${kind}-months-quick">
+          <div class="floor-tab active" data-months="1">1 month</div>
+          <div class="floor-tab" data-months="2">2 months</div>
+          <div class="floor-tab" data-months="3">3 months</div>
+          <div class="floor-tab" data-months="other">Other</div>
+        </div>
+        <div id="${kind}-months-other-wrap" style="display:none;">${monthOptions(kind+'-months-other')}</div>
+        <p style="font-size:12px;color:var(--muted);margin:-8px 0 10px;">Amount due: ₹<span id="${kind}-due-display">0</span></p>
+        <label>Amount to pay now (₹)</label>
+        <input type="number" id="${kind}-pay-amount" min="0" value="0" data-mode="new">
+        <p style="font-size:11px;color:var(--muted);margin:-10px 0 0;">Pay less than the amount due to leave a balance — the due date won't move until it's fully paid. Leave at 0 to skip ${label.toLowerCase()} this time.</p>
+      </div>`;
+  }
+
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal" style="width:440px;">
+        <h3>Record payment</h3>
+        <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">${s.name} — seat ${s.seatId}${hasLocker ? ' · locker ' + s.lockerId : ''}</p>
+
+        ${resourceBlock('seat', seatCharge)}
+        ${hasLocker ? resourceBlock('locker', lockerCharge) : ''}
+
+        <label>Payment method</label>
+        <div class="floor-tabs" id="pm-method-tabs">
+          <div class="floor-tab active" data-method="upi">UPI</div>
+          <div class="floor-tab" data-method="cash">Cash</div>
+        </div>
+
+        <p style="text-align:center;margin:10px 0 0;">
+          <a href="#" id="misc-payment-link" style="font-size:12px;color:var(--ink-light);">Log a one-off payment instead (no renewal)</a>
+        </p>
+
+        <div class="modal-actions">
+          <button class="btn" id="pm-submit">Save payment</button>
+          <button class="btn btn-outline" id="close-modal">Close</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+
+  document.getElementById('misc-payment-link').onclick = (e)=>{ e.preventDefault(); showMiscPaymentModal(studentId); };
+
+  let payMethod = 'upi';
+  const methodTabs = document.getElementById('pm-method-tabs');
+  methodTabs.querySelectorAll('.floor-tab').forEach(el=>{
+    el.onclick = ()=>{
+      payMethod = el.dataset.method;
+      methodTabs.querySelectorAll('.floor-tab').forEach(t=>t.classList.remove('active'));
+      el.classList.add('active');
+    };
+  });
+
+  function monthsFrom(kind){
+    const group = document.getElementById(kind+'-months-quick');
+    if (!group) return 0;
+    const active = group.querySelector('.floor-tab.active');
+    if (!active) return 0;
+    if (active.dataset.months === 'other') return Number(document.getElementById(kind+'-months-other').value);
+    return Number(active.dataset.months);
+  }
+
+  function refreshDue(kind){
+    const dueDisplay = document.getElementById(kind+'-due-display');
+    if (!dueDisplay) return; // this resource has an open charge, no "new" section to refresh
+    const months = monthsFrom(kind);
+    const due = kind === 'seat' ? presetForMonths(months) : LOCKER_MONTHLY * months;
+    dueDisplay.textContent = due;
+    const payInput = document.getElementById(kind+'-pay-amount');
+    if (payInput) payInput.value = due;
+  }
+
+  ['seat','locker'].forEach(kind=>{
+    const group = document.getElementById(kind+'-months-quick');
+    if (!group) return;
+    group.querySelectorAll('.floor-tab').forEach(el=>{
+      el.onclick = ()=>{
+        group.querySelectorAll('.floor-tab').forEach(t=>t.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById(kind+'-months-other-wrap').style.display = el.dataset.months === 'other' ? 'block' : 'none';
+        refreshDue(kind);
+      };
+    });
+    const otherSel = document.getElementById(kind+'-months-other');
+    if (otherSel) otherSel.onchange = ()=> refreshDue(kind);
+    refreshDue(kind);
+  });
+
+  ['seat','locker'].forEach(kind=>{
+    const cancelBtn = document.getElementById(kind+'-cancel-charge');
+    if (!cancelBtn) return;
+    cancelBtn.onclick = async ()=>{
+      if (!confirm('Cancel this open charge? Any payment already logged against it stays on record, but the balance will stop showing as pending.')) return;
+      try{
+        await apiPost('/api/student-actions', { action: 'cancelCharge', chargeId: cancelBtn.dataset.chargeId });
+        await loadFullStudents();
+        showPaymentModal(studentId);
+        showToast('Charge cancelled');
+      }catch(err){ showToast(err.message || 'Failed to cancel charge'); }
+    };
+  });
+
+  document.getElementById('pm-submit').onclick = async ()=>{
+    const seatInput = document.getElementById('seat-pay-amount');
+    const lockerInput = document.getElementById('locker-pay-amount');
+    const seatAmount = seatInput ? Number(seatInput.value || 0) : 0;
+    const lockerAmount = lockerInput ? Number(lockerInput.value || 0) : 0;
+
+    if (seatAmount <= 0 && lockerAmount <= 0){ showToast('Enter an amount for seat and/or locker'); return; }
+
+    const submitBtn = document.getElementById('pm-submit');
+    submitBtn.disabled = true; submitBtn.textContent = 'Saving…';
+
+    try{
+      let anyFullyPaid = false, anyPartial = false;
+
+      if (seatAmount > 0){
+        if (seatInput.dataset.mode === 'charge'){
+          const result = await apiPost('/api/student-actions', { action: 'payCharge', chargeId: seatInput.dataset.chargeId, amountPaid: seatAmount, paymentMethod: payMethod });
+          result.fullyPaid ? anyFullyPaid = true : anyPartial = true;
+        } else {
+          const months = monthsFrom('seat');
+          const due = presetForMonths(months);
+          const result = await apiPost('/api/student-actions', { action: 'startCharge', studentId: s.id, resourceType: 'seat', months, amountDue: due, amountPaid: seatAmount, paymentMethod: payMethod });
+          result.fullyPaid ? anyFullyPaid = true : anyPartial = true;
+        }
+      }
+
+      if (lockerAmount > 0){
+        if (lockerInput.dataset.mode === 'charge'){
+          const result = await apiPost('/api/student-actions', { action: 'payCharge', chargeId: lockerInput.dataset.chargeId, amountPaid: lockerAmount, paymentMethod: payMethod });
+          result.fullyPaid ? anyFullyPaid = true : anyPartial = true;
+        } else {
+          const months = monthsFrom('locker');
+          const due = LOCKER_MONTHLY * months;
+          const result = await apiPost('/api/student-actions', { action: 'startCharge', studentId: s.id, resourceType: 'locker', months, amountDue: due, amountPaid: lockerAmount, paymentMethod: payMethod });
+          result.fullyPaid ? anyFullyPaid = true : anyPartial = true;
+        }
+      }
+
+      await loadFullStudents();
+      closeModal(); render();
+      if (anyPartial && !anyFullyPaid) showToast('Partial payment recorded — balance remaining, due date unchanged');
+      else if (anyPartial && anyFullyPaid) showToast('Payment recorded — one balance cleared, one still open');
+      else showToast('Payment recorded — due date extended');
+    }catch(err){
+      showToast(err.message || 'Failed to record payment');
+      submitBtn.disabled = false; submitBtn.textContent = 'Save payment';
+    }
+  };
+}
+
+function showMiscPaymentModal(studentId){
+  const s = students.find(x=>x.id===studentId);
+  if (!s) return;
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Log a one-off payment</h3>
+        <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">${s.name} — this won't change any due date.</p>
+        <label>Amount (₹)</label>
+        <input type="number" id="misc-amount" min="1" placeholder="e.g. 200">
+        <label>Note</label>
+        <input type="text" id="misc-note" placeholder="e.g. Late fee, replacement ID card, etc.">
+        <label>Payment method</label>
+        <div class="floor-tabs" id="misc-method-tabs">
+          <div class="floor-tab active" data-method="upi">UPI</div>
+          <div class="floor-tab" data-method="cash">Cash</div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" id="misc-submit">Save payment</button>
+          <button class="btn btn-outline" id="close-modal">Back</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('close-modal').onclick = ()=> showPaymentModal(studentId);
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') showPaymentModal(studentId); };
+
+  let method = 'upi';
+  const methodTabs = document.getElementById('misc-method-tabs');
+  methodTabs.querySelectorAll('.floor-tab').forEach(el=>{
+    el.onclick = ()=>{
+      method = el.dataset.method;
+      methodTabs.querySelectorAll('.floor-tab').forEach(t=>t.classList.remove('active'));
+      el.classList.add('active');
+    };
+  });
+
+  document.getElementById('misc-submit').onclick = async ()=>{
+    const amount = Number(document.getElementById('misc-amount').value || 0);
+    const note = document.getElementById('misc-note').value.trim();
+    if (amount <= 0){ showToast('Enter a valid amount'); return; }
+    const submitBtn = document.getElementById('misc-submit');
+    submitBtn.disabled = true; submitBtn.textContent = 'Saving…';
+    try{
+      await apiPost('/api/student-actions', { action: 'miscPayment', studentId, amount, paymentMethod: method, note });
+      await loadFullStudents();
+      closeModal(); render();
+      showToast('Payment recorded');
+    }catch(err){
+      showToast(err.message || 'Failed to record payment');
+      submitBtn.disabled = false; submitBtn.textContent = 'Save payment';
+    }
+  };
+}
+
+
+function showAssignLockerModal(studentId){
+  const s = students.find(x=>x.id===studentId);
+  if (!s) return;
+  let lockerOptions = '';
+  LOCKERS.forEach(f=>{
+    for(let i=1;i<=f.count;i++){
+      if(!lockerOccupantOf(f.id,i)) lockerOptions += `<option value="${lockerLabel(f.id,i)}" data-floor="${f.id}">${f.label} — Locker ${i}</option>`;
+    }
+  });
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Assign locker</h3>
+        <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">${s.name} — ₹${LOCKER_MONTHLY}/month + ₹${LOCKER_DEPOSIT} refundable deposit</p>
+        <label>Locker</label>
+        <select id="al2-locker">${lockerOptions || '<option value="">No free lockers</option>'}</select>
+        <label>Subscription (months)</label>
+        <select id="al2-months">${Array.from({length:12},(_,i)=>i+1).map(m=>`<option value="${m}">${m} month${m>1?'s':''}</option>`).join('')}</select>
+        <p style="font-size:12px;color:var(--muted);margin:-8px 0 14px;">Amount due: ₹<span id="al2-due-display">${LOCKER_DEPOSIT + LOCKER_MONTHLY}</span> (₹${LOCKER_DEPOSIT} deposit + ₹${LOCKER_MONTHLY}/month)</p>
+        <label>Amount paid (₹)</label>
+        <input type="number" id="al2-amount" min="1" value="${LOCKER_DEPOSIT + LOCKER_MONTHLY}">
+        <div class="modal-actions">
+          <button class="btn" id="al2-submit">Assign locker</button>
+          <button class="btn btn-outline" id="close-modal">Close</button>
+        </div>
+      </div>
+    </div>`;
+  const monthsSel = document.getElementById('al2-months');
+  const amountInput = document.getElementById('al2-amount');
+  const dueDisplay = document.getElementById('al2-due-display');
+  monthsSel.onchange = ()=>{
+    const due = LOCKER_DEPOSIT + LOCKER_MONTHLY * Number(monthsSel.value);
+    dueDisplay.textContent = due;
+    amountInput.value = due;
+  };
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if(e.target.id==='ov') closeModal(); };
+  document.getElementById('al2-submit').onclick = async ()=>{
+    const lockerSel = document.getElementById('al2-locker');
+    const lockerId = lockerSel.value;
+    if (!lockerId){ showToast('No free locker selected'); return; }
+    const floorId = lockerSel.selectedOptions[0].dataset.floor;
+    const months = monthsSel.value;
+    const amount = Number(amountInput.value || 0);
+    if (amount<=0){ showToast('Enter a valid amount'); return; }
+    try{
+      await apiPost('/api/student-actions', { action: 'locker', studentId: s.id, lockerId, floorId, months, amount });
+      await loadFullStudents(); await loadPublicAvailability();
+      closeModal(); render(); showToast('Locker ' + lockerId + ' assigned to ' + s.name);
+    }catch(err){ showToast(err.message); }
+  };
+}
+
+function showEditStudentModal(studentId){
+  const s = students.find(x=>x.id===studentId);
+  if (!s) return;
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Edit details</h3>
+        <label>Full name</label>
+        <input type="text" id="es-name" value="${s.name}">
+        <label>Phone</label>
+        <input type="tel" id="es-phone" value="${s.phone}" maxlength="10">
+        <small class="field-error" id="err-es-phone"></small>
+        <label>Email</label>
+        <input type="email" id="es-email" value="${s.email||''}">
+        <label>Exam</label>
+        <input type="text" id="es-exam" value="${s.examPrep}">
+        <div class="modal-actions">
+          <button class="btn" id="es-save">Save changes</button>
+          <button class="btn btn-outline" id="close-modal">Close</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+  document.getElementById('es-save').onclick = async ()=>{
+    const phoneVal = digitsOnly(document.getElementById('es-phone').value);
+    if (!isValidPhone(phoneVal)){ showFieldError('es-phone','err-es-phone','Phone number must be exactly 10 digits.'); return; }
+    const fields = {
+      name: document.getElementById('es-name').value.trim(),
+      phone: phoneVal,
+      email: document.getElementById('es-email').value.trim() || null,
+      examPrep: document.getElementById('es-exam').value.trim()
+    };
+    try{
+      await apiPost('/api/student-actions', { action: 'edit', studentId, fields });
+      await loadFullStudents();
+      closeModal(); render(); showToast('Details updated');
+    }catch(err){ showToast(err.message || 'Failed to save changes'); }
+  };
+}
+
+function showSwapModal(studentId, kind){
+  const s = students.find(x=>x.id===studentId);
+  if (!s) return;
+  let options = '';
+  if (kind === 'seat'){
+    FLOORS.forEach(f=>{
+      for(let i=1;i<=f.count;i++){
+        if (!occupantOf(f.id,i)) options += `<option value="${seatLabel(f.id,i)}" data-floor="${f.id}">${f.label} — Seat ${i}</option>`;
+      }
+    });
+  } else {
+    LOCKERS.forEach(f=>{
+      for(let i=1;i<=f.count;i++){
+        if (!lockerOccupantOf(f.id,i)) options += `<option value="${lockerLabel(f.id,i)}" data-floor="${f.id}">${f.label} — Locker ${i}</option>`;
+      }
+    });
+  }
+  const currentLabel = kind === 'seat' ? s.seatId : s.lockerId;
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Move ${kind}</h3>
+        <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">${s.name} — currently ${kind} ${currentLabel}</p>
+        <label>Move to</label>
+        <select id="swap-target">${options || `<option value="">No free ${kind}s available</option>`}</select>
+        <div class="modal-actions">
+          <button class="btn" id="swap-submit">Move</button>
+          <button class="btn btn-outline" id="close-modal">Close</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+  document.getElementById('swap-submit').onclick = async ()=>{
+    const sel = document.getElementById('swap-target');
+    const targetId = sel.value;
+    if (!targetId){ showToast('No free ' + kind + ' selected'); return; }
+    const targetFloor = sel.selectedOptions[0].dataset.floor;
+    try{
+      await apiPost('/api/student-actions', { action: 'swap', studentId, kind, targetId, targetFloor });
+      await loadFullStudents(); await loadPublicAvailability();
+      closeModal(); render(); showToast(s.name + ' moved to ' + kind + ' ' + targetId);
+    }catch(err){ showToast(err.message || 'Failed to move'); }
+  };
+}
+
+function showShareBillModal(studentId){
+  const s = students.find(x=>x.id===studentId);
+  if (!s) return;
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Share bill</h3>
+        <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">${s.name}</p>
+        <div class="modal-actions" style="flex-direction:column;align-items:stretch;">
+          ${s.email ? `<button class="btn" id="resend-email-btn" style="justify-content:center;">Share by email</button>` : `<p style="font-size:12px;color:var(--muted);">No email on file — QR option only.</p>`}
+          <button class="btn btn-outline" id="show-qr-btn" style="justify-content:center;">Show QR to scan</button>
+          <button class="btn btn-outline" id="close-modal" style="justify-content:center;">Close</button>
+        </div>
+        <div id="bill-qr-wrap" style="display:none;margin-top:16px;text-align:center;"></div>
+      </div>
+    </div>`;
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+
+  const resendBtn = document.getElementById('resend-email-btn');
+  if (resendBtn) resendBtn.onclick = async ()=>{
+    resendBtn.disabled = true; resendBtn.textContent = 'Sending…';
+    try{
+      const result = await apiPost('/api/student-actions', { action: 'resendBill', studentId });
+      showToast(result.emailSent ? 'Bill emailed to ' + s.email : 'Failed to send: ' + (result.emailReason||'unknown error'));
+      closeModal();
+    }catch(err){
+      showToast(err.message || 'Failed to send email');
+      resendBtn.disabled = false; resendBtn.textContent = 'Share by email';
+    }
+  };
+
+  const qrBtn = document.getElementById('show-qr-btn');
+  qrBtn.onclick = async ()=>{
+    qrBtn.disabled = true; qrBtn.textContent = 'Generating…';
+    try{
+      const result = await apiPost('/api/student-actions', { action: 'generateBillToken', studentId });
+      const billUrl = window.location.origin + '/api/bill?token=' + encodeURIComponent(result.token);
+      const qrImgUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(billUrl);
+      const wrap = document.getElementById('bill-qr-wrap');
+      wrap.style.display = 'block';
+      wrap.innerHTML = `
+        <img src="${qrImgUrl}" style="width:200px;height:200px;border:1px solid var(--line);border-radius:8px;">
+        <p style="font-size:12px;color:var(--muted);margin-top:10px;">Scan to view the bill in a browser — no app needed.</p>`;
+    }catch(err){
+      showToast(err.message || 'Failed to generate QR');
+    }finally{
+      qrBtn.disabled = false; qrBtn.textContent = 'Show QR to scan';
+    }
+  };
+}
+
+function showPaymentHistoryModal(studentId){
+  const s = students.find(x=>x.id===studentId);
+  if (!s) return;
+  const isFounder = session && session.role === 'founder';
+  const rows = (s.payments || []).slice().reverse().map((p,idx)=>`
+    <div class="row" data-payment-idx="${idx}">
+      <span>${formatDateHuman(p.date)} — ${p.note||''} <span class="badge pending" style="text-transform:capitalize;">${p.paymentMethod || 'upi'}</span></span>
+      <span>₹${p.amount}${isFounder && p.id ? ` <button class="btn btn-sm btn-outline" data-editpay="${p.id}" data-amount="${p.amount}" data-note="${(p.note||'').replace(/"/g,'&quot;')}" data-method="${p.paymentMethod||'upi'}">Edit</button> <button class="btn btn-sm btn-outline" data-deletepay="${p.id}">Delete</button>` : ''}</span>
+    </div>
+  `).join('');
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal" style="width:460px;">
+        <h3>Payment history</h3>
+        <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">${s.name} — total paid ₹${totalPaid(s)}</p>
+        <div style="max-height:320px;overflow-y:auto;">
+          ${rows || '<p class="empty">No payments recorded.</p>'}
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" id="close-modal">Close</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+  document.querySelectorAll('[data-editpay]').forEach(el=>{
+    el.onclick = ()=> showEditPaymentModal(studentId, el.dataset.editpay, el.dataset.amount, el.dataset.note, el.dataset.method);
+  });
+  document.querySelectorAll('[data-deletepay]').forEach(el=>{
+    el.onclick = async ()=>{
+      if (!confirm('Delete this payment record? This cannot be undone.')) return;
+      try{
+        await apiPost('/api/student-actions', { action: 'deletePayment', paymentId: el.dataset.deletepay });
+        await loadFullStudents();
+        showPaymentHistoryModal(studentId);
+        showToast('Payment removed');
+      }catch(err){ showToast(err.message || 'Failed to delete payment'); }
+    };
+  });
+}
+
+function showEditPaymentModal(studentId, paymentId, amount, note, method){
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Edit payment</h3>
+        <label>Amount (₹)</label>
+        <input type="number" id="ep-amount" value="${amount}" min="0">
+        <label>Note</label>
+        <input type="text" id="ep-note" value="${note}">
+        <label>Payment method</label>
+        <div class="floor-tabs" id="ep-method-tabs">
+          <div class="floor-tab ${method!=='cash'?'active':''}" data-method="upi">UPI</div>
+          <div class="floor-tab ${method==='cash'?'active':''}" data-method="cash">Cash</div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" id="ep-save">Save</button>
+          <button class="btn btn-outline" id="close-modal">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('close-modal').onclick = ()=> showPaymentHistoryModal(studentId);
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') showPaymentHistoryModal(studentId); };
+  let editMethod = method === 'cash' ? 'cash' : 'upi';
+  const methodTabs = document.getElementById('ep-method-tabs');
+  methodTabs.querySelectorAll('.floor-tab').forEach(el=>{
+    el.onclick = ()=>{
+      editMethod = el.dataset.method;
+      methodTabs.querySelectorAll('.floor-tab').forEach(t=>t.classList.remove('active'));
+      el.classList.add('active');
+    };
+  });
+  document.getElementById('ep-save').onclick = async ()=>{
+    const newAmount = Number(document.getElementById('ep-amount').value);
+    const newNote = document.getElementById('ep-note').value.trim();
+    if (newAmount <= 0){ showToast('Enter a valid amount'); return; }
+    try{
+      await apiPost('/api/student-actions', { action: 'editPayment', paymentId, amount: newAmount, note: newNote, paymentMethod: editMethod });
+      await loadFullStudents();
+      showPaymentHistoryModal(studentId);
+      showToast('Payment updated');
+    }catch(err){ showToast(err.message || 'Failed to update payment'); }
+  };
+}
+
+function showRemoveReasonModal(studentId, onDone){
+  const s = students.find(x=>x.id===studentId);
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" id="ov">
+      <div class="modal">
+        <h3>Remove ${s ? s.name : 'student'}</h3>
+        <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">Their seat${s && s.lockerId ? ' and locker' : ''} will become available immediately.</p>
+        <label>Reason (optional, kept in records)</label>
+        <input type="text" id="remove-reason" placeholder="e.g. Discontinued studies">
+        <div class="modal-actions">
+          <button class="btn" id="remove-confirm" style="background:var(--critical);border-color:var(--critical);">Remove</button>
+          <button class="btn btn-outline" id="close-modal">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('close-modal').onclick = closeModal;
+  document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+  document.getElementById('remove-confirm').onclick = async ()=>{
+    const reason = document.getElementById('remove-reason').value.trim();
+    try{
+      await apiPost('/api/student-actions', { action: 'delete', studentId, reason });
+      await loadFullStudents(); await loadPublicAvailability();
+      closeModal();
+      if (onDone) onDone();
+      showToast('Student removed');
+    }catch(err){ showToast(err.message || 'Failed to remove student'); }
+  };
+}
+
+// ============================================================
+// Event wiring
+// ============================================================
+function wireLoginForm(){
+  const emailInput = document.getElementById('login-email');
+  const passInput = document.getElementById('login-password');
+  const errorMsg = document.getElementById('login-error');
+  const doLogin = async ()=>{
+    const email = emailInput.value.trim();
+    const password = passInput.value;
+    if (!email || !password){ errorMsg.textContent = 'Enter both email and password.'; errorMsg.style.display='block'; return; }
+    try{
+      await apiPost('/api/auth?action=login', { email, password });
+    }catch(err){
+      errorMsg.textContent = err.message || 'Incorrect email or password.';
+      errorMsg.style.display = 'block';
+      return;
+    }
+    await resolveSession();
+    if (session) await loadPendingList();
+    render();
+  };
+  document.getElementById('login-submit').onclick = doLogin;
+  passInput.onkeydown = (e)=>{ if (e.key === 'Enter') doLogin(); };
+  emailInput.focus();
+}
+
+function attachHandlers(){
+  document.querySelectorAll('.nav-item').forEach(el=>{
+    el.onclick = ()=> navigateTo(el.dataset.page);
+  });
+
+  if (GATED_PAGES.includes(currentPage) && !session){
+    wireLoginForm();
+    return;
+  }
+
+  if (currentPage === 'dashboard'){
+    document.querySelectorAll('.floor-tab[data-view]').forEach(el=>{
+      el.onclick = ()=>{ dashView = el.dataset.view; dashStatusFilter = 'all'; dashSearch = ''; render(); };
+    });
+    document.querySelectorAll('.floor-tab[data-floor]').forEach(el=>{
+      el.onclick = ()=>{
+        if (dashView === 'lockers') currentLockerFloor = el.dataset.floor;
+        else currentFloor = el.dataset.floor;
+        render();
+      };
+    });
+    document.querySelectorAll('.metric-card[data-statusfilter]').forEach(el=>{
+      el.onclick = ()=>{
+        const f = el.dataset.statusfilter;
+        dashStatusFilter = (dashStatusFilter === f) ? 'all' : f;
+        render();
+      };
+    });
+    document.querySelectorAll('.filter-btn[data-dashfilter]').forEach(el=>{
+      el.onclick = ()=>{ dashStatusFilter = el.dataset.dashfilter; render(); };
+    });
+    const clearLink = document.getElementById('dash-clear-filter');
+    if (clearLink) clearLink.onclick = (e)=>{ e.preventDefault(); dashStatusFilter = 'all'; render(); };
+    const dashSearchInput = document.getElementById('dash-search');
+    if (dashSearchInput){
+      dashSearchInput.oninput = ()=>{ dashSearch = dashSearchInput.value; render(); };
+      dashSearchInput.focus();
+      dashSearchInput.setSelectionRange(dashSearchInput.value.length, dashSearchInput.value.length);
+    }
+    document.querySelectorAll('.seat').forEach(el=>{
+      el.onclick = ()=>{
+        if (el.dataset.pending) return showPendingHoldModal(el.dataset.kind, el.dataset.floor, Number(el.dataset.num));
+        showStaffSeatModal(el.dataset.kind, el.dataset.floor, Number(el.dataset.num));
+      };
+    });
+    document.querySelectorAll('[data-clearcleanup]').forEach(el=>{
+      el.onclick = async ()=>{
+        el.disabled = true; el.textContent = 'Clearing…';
+        try{
+          await apiPost('/api/cleanup', { flagId: el.dataset.clearcleanup });
+          await loadCleanupFlags();
+          render();
+        }catch(err){
+          showToast(err.message || 'Failed to update');
+          el.disabled = false; el.textContent = 'Mark cleaned';
+        }
+      };
+    });
+  }
+
+  if (currentPage === 'availability'){
+    document.querySelectorAll('.seat').forEach(el=>{
+      el.onclick = ()=> showPublicResourceModal(el.dataset.kind, el.dataset.floor, Number(el.dataset.num));
+    });
+    document.querySelectorAll('.floor-tab[data-availview]').forEach(el=>{
+      el.onclick = ()=>{ availView = el.dataset.availview; availFloorFilter = 'all'; render(); };
+    });
+    document.querySelectorAll('#avail-floor-filter .floor-tab').forEach(el=>{
+      el.onclick = ()=>{ availFloorFilter = el.dataset.availfloor; render(); };
+    });
+  }
+
+  if (currentPage === 'register' && regStep === 1){
+    const cb = document.getElementById('rules-accept');
+    const continueBtn = document.getElementById('rules-continue-btn');
+    cb.onchange = ()=>{
+      continueBtn.disabled = !cb.checked;
+      const existing = loadRegDraft() || {};
+      existing.rulesAccepted = cb.checked;
+      existing.regFloor = regFloor;
+      existing.regStep = 1;
+      try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
+    };
+    continueBtn.onclick = ()=>{ goToRegStep(2); };
+  }
+
+  if (currentPage === 'register' && regStep === 2){
+    const form = document.getElementById('reg-form');
+
+    // Restore whatever was typed before (survives switching floors, an
+    // accidental reload, or navigating away without submitting).
+    applyRegDraft();
+
+    document.getElementById('reg-back-btn').onclick = ()=>{ saveRegDraft(); goToRegStep(1); };
+
+    document.querySelectorAll('#reg-floor-tabs .floor-tab').forEach(el=>{
+      el.onclick = ()=>{
+        saveRegDraft();
+        regFloor = el.dataset.regfloor;
+        document.querySelectorAll('#reg-floor-tabs .floor-tab').forEach(t=>t.classList.remove('active'));
+        el.classList.add('active');
+        let freeCount = 0;
+        const floor = FLOORS.find(f=>f.id===regFloor) || FLOORS[0];
+        for(let i=1;i<=floor.count;i++){ if (isSeatFree(floor.id,i)) freeCount++; }
+        document.getElementById('reg-seat-locker-row').innerHTML = renderRegisterSeatLockerInner(floor, freeCount);
+        // locker floor changed, so any previous locker selection is no longer valid
+        document.getElementById('f-locker-months-wrap').style.display = 'none';
+        wireLockerSelect();
+        const seatSel = document.getElementById('f-seat');
+        if (seatSel) seatSel.onchange = saveRegDraft;
+      };
+    });
+
+    function wireLockerSelect(){
+      const lockerSel = document.getElementById('f-locker');
+      const lockerMonthsWrap = document.getElementById('f-locker-months-wrap');
+      lockerMonthsWrap.style.display = lockerSel.value ? 'block' : 'none';
+      lockerSel.onchange = ()=>{ lockerMonthsWrap.style.display = lockerSel.value ? 'block' : 'none'; saveRegDraft(); };
+    }
+    wireLockerSelect();
+    document.getElementById('f-seat').onchange = saveRegDraft;
+
+    // Live phone validation: digits only, capped at 10.
+    const phoneInput = document.getElementById('f-phone');
+    phoneInput.oninput = ()=>{
+      phoneInput.value = digitsOnly(phoneInput.value).slice(0,10);
+      clearFieldError('f-phone','err-phone');
+      saveRegDraft();
+    };
+    ['f-name','f-email','f-exam','f-join','f-months','f-locker-months'].forEach(id=>{
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', saveRegDraft);
+    });
+
+    const fileInput = document.getElementById('f-id-file');
+    const preview = document.getElementById('f-id-preview');
+    fileInput.onchange = async ()=>{
+      const file = fileInput.files[0];
+      if (!file){ preview.style.display = 'none'; preview.innerHTML=''; return; }
+      clearFieldError('f-id-file','err-idphoto');
+      preview.style.display = 'block';
+      preview.innerHTML = '<div class="spinner sm"></div>';
+      try{
+        const raw = await readFileAsDataURL(file);
+        const resized = await resizeImageDataURL(raw, 900, 0.72);
+        fileInput.dataset.resized = resized;
+        regIdPhoto = resized;
+        const existing = loadRegDraft() || {};
+        existing.idPhotoBase64 = resized;
+        try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
+        preview.innerHTML = `<img src="${resized}" style="max-width:140px;max-height:100px;border-radius:6px;border:1px solid var(--line);">`;
+      }catch(err){
+        preview.style.display = 'none';
+        preview.innerHTML = '';
+        fileInput.value = '';
+        showFieldError('f-id-file','err-idphoto', err.message || 'Could not use this photo.');
+      }
+    };
+
+    form.onsubmit = (e)=>{
+      e.preventDefault();
+
+      let valid = true;
+      const nameVal = document.getElementById('f-name').value.trim();
+      const phoneVal = document.getElementById('f-phone').value.trim();
+      const emailVal = document.getElementById('f-email').value.trim();
+      const examVal = document.getElementById('f-exam').value.trim();
+      const joinVal = document.getElementById('f-join').value;
+      const seatId = document.getElementById('f-seat').value;
+
+      clearFieldError('f-name','err-name');
+      clearFieldError('f-phone','err-phone');
+      clearFieldError('f-email','err-email');
+      clearFieldError('f-exam','err-exam');
+      clearFieldError('f-join','err-join');
+      clearFieldError('f-id-file','err-idphoto');
+
+      if (!nameVal || nameVal.length < 2){ showFieldError('f-name','err-name',"Enter the student's full name."); valid = false; }
+      if (!isValidPhone(phoneVal)){ showFieldError('f-phone','err-phone','Phone number must be exactly 10 digits.'); valid = false; }
+      if (!emailVal){ showFieldError('f-email','err-email','Enter an email address.'); valid = false; }
+      else if (!isValidEmail(emailVal)){ showFieldError('f-email','err-email','Enter a valid email address.'); valid = false; }
+      if (!examVal){ showFieldError('f-exam','err-exam','Enter the exam this student is preparing for.'); valid = false; }
+      if (!joinVal){ showFieldError('f-join','err-join','Pick a date of joining.'); valid = false; }
+      if (!seatId){ showToast('No seat selected'); valid = false; }
+      if (!valid) return;
+
+      saveRegDraft();
+      goToRegStep(3);
+    };
+  }
+
+  if (currentPage === 'register' && regStep === 3){
+    const draft = loadRegDraft() || {};
+    const seatId = draft['f-seat'] || '';
+    const amountSel = document.getElementById('pay-amount');
+    const otherWrap = document.getElementById('pay-amount-other-wrap');
+    otherWrap.style.display = amountSel.value === 'other' ? 'block' : 'none';
+
+    const currentTotal = ()=>{
+      const seatBase = amountSel.value === 'other' ? Number(document.getElementById('pay-amount-other').value || 0) : Number(amountSel.value);
+      return seatBase + computeLockerCharge(draft);
+    };
+    const refreshTotal = ()=>{
+      const total = currentTotal();
+      const totalEl = document.getElementById('pay-total-display');
+      if (totalEl) totalEl.textContent = total;
+      const cashTotalEl = document.getElementById('cash-total-display');
+      if (cashTotalEl) cashTotalEl.textContent = total;
+      const qrImg = document.getElementById('upi-qr-img');
+      if (qrImg) qrImg.src = buildUpiQrUrl(total || 1, 'Seat ' + seatId);
+    };
+    amountSel.onchange = ()=>{ otherWrap.style.display = amountSel.value === 'other' ? 'block' : 'none'; saveRegDraft(); refreshTotal(); };
+    const otherInput = document.getElementById('pay-amount-other');
+    if (otherInput) otherInput.oninput = ()=>{ saveRegDraft(); refreshTotal(); };
+
+    let payMethod = draft['pay-method'] || 'upi';
+    const methodTabs = document.getElementById('pay-method-tabs');
+    const screenshotLabel = document.getElementById('screenshot-label');
+    methodTabs.querySelectorAll('.floor-tab').forEach(el=>{
+      el.onclick = ()=>{
+        payMethod = el.dataset.method;
+        methodTabs.querySelectorAll('.floor-tab').forEach(t=>t.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById('upi-pay-block').style.display = payMethod === 'cash' ? 'none' : 'block';
+        document.getElementById('cash-pay-block').style.display = payMethod === 'cash' ? 'block' : 'none';
+        screenshotLabel.textContent = 'Upload payment screenshot' + (payMethod === 'cash' ? ' (optional for cash)' : '');
+        const existing = loadRegDraft() || {};
+        existing['pay-method'] = payMethod;
+        try{ localStorage.setItem(REG_DRAFT_KEY, JSON.stringify(existing)); }catch(e){}
+        refreshTotal();
+      };
+    });
+
+    document.getElementById('pay-back-btn').onclick = ()=>{ saveRegDraft(); goToRegStep(2); };
+
+    const copyUpiBtn = document.getElementById('copy-upi-btn');
+    if (copyUpiBtn) copyUpiBtn.onclick = async ()=>{
+      try{
+        await navigator.clipboard.writeText(UPI_ID);
+        showToast('UPI ID copied');
+      }catch(e){
+        showToast('Could not copy — UPI ID is ' + UPI_ID);
+      }
+    };
+
+    const shotInput = document.getElementById('pay-screenshot');
+    const shotPreview = document.getElementById('pay-screenshot-preview');
+    shotInput.onchange = async ()=>{
+      const file = shotInput.files[0];
+      if (!file){ shotPreview.style.display = 'none'; shotPreview.innerHTML=''; return; }
+      clearFieldError('pay-screenshot','err-screenshot');
+      shotPreview.style.display = 'block';
+      shotPreview.innerHTML = '<div class="spinner sm"></div>';
+      try{
+        const raw = await readFileAsDataURL(file);
+        const resized = await resizeImageDataURL(raw, 900, 0.72);
+        shotInput.dataset.resized = resized;
+        shotPreview.innerHTML = `<img src="${resized}" style="max-width:140px;max-height:100px;border-radius:6px;border:1px solid var(--line);">`;
+      }catch(err){
+        shotPreview.style.display = 'none';
+        shotPreview.innerHTML = '';
+        shotInput.value = '';
+        showFieldError('pay-screenshot','err-screenshot', err.message || 'Could not use this screenshot.');
+      }
+    };
+
+    document.getElementById('pay-submit-btn').onclick = async ()=>{
+      clearFieldError('pay-screenshot','err-screenshot');
+      const screenshotData = shotInput.dataset.resized;
+      if (payMethod === 'upi' && !screenshotData){
+        showFieldError('pay-screenshot','err-screenshot','Upload a screenshot of your payment before submitting.');
+        return;
+      }
+
+      const submitBtn = document.getElementById('pay-submit-btn');
+      submitBtn.disabled = true; submitBtn.textContent = 'Submitting…';
+
+      const finalDraft = loadRegDraft() || {};
+      const amount = currentTotal();
+      if (amount <= 0){
+        showFieldError('pay-screenshot','err-screenshot','Enter a valid amount.');
+        submitBtn.disabled = false; submitBtn.textContent = 'Submit registration';
+        return;
+      }
+
+      const payload = {
+        name: finalDraft['f-name'],
+        phone: finalDraft['f-phone'],
+        email: finalDraft['f-email'] || null,
+        examPrep: finalDraft['f-exam'],
+        joinDate: finalDraft['f-join'],
+        durationMonths: Number(finalDraft['f-months']),
+        seatId: finalDraft['f-seat'],
+        amount,
+        paymentMethod: payMethod,
+        rulesAcceptedAt: new Date().toISOString()
+      };
+      if (screenshotData) payload.paymentScreenshotBase64 = screenshotData;
+      if (finalDraft['f-locker']){
+        payload.lockerId = finalDraft['f-locker'];
+        payload.lockerMonths = Number(finalDraft['f-locker-months']);
+      }
+      const idPhotoData = regIdPhoto || finalDraft.idPhotoBase64;
+      if (idPhotoData) payload.photoBase64 = idPhotoData;
+
+      try{
+        await apiPost('/api/register', payload);
+        clearRegDraft();
+        await loadPublicAvailability();
+        regStep = 4;
+        history.pushState({ page: 'register', regStep: 4 }, '', pathForPage('register', 4));
+        render();
+      }catch(err){
+        showToast(err.message || 'Registration failed. Please try again.');
+        submitBtn.disabled = false; submitBtn.textContent = 'Submit registration';
+        await loadPublicAvailability();
+      }
+    };
+  }
+
+  if (currentPage === 'register' && regStep === 4){
+    document.getElementById('done-back-btn').onclick = ()=>{
+      regStep = 1;
+      navigateTo('availability');
+    };
+  }
+
+  if (currentPage === 'subscriptions'){
+    document.querySelectorAll('.filter-btn').forEach(el=>{
+      el.onclick = ()=>{ subFilter = el.dataset.filter; render(); };
+    });
+    const sortSel = document.getElementById('sub-sort');
+    if (sortSel) sortSel.onchange = ()=>{ subSort = sortSel.value; render(); };
+    const search = document.getElementById('sub-search');
+    search.oninput = ()=>{ subSearch = search.value; render(); };
+    search.focus();
+    search.setSelectionRange(search.value.length, search.value.length);
+    document.querySelectorAll('[data-remove]').forEach(el=>{
+      el.onclick = ()=> showRemoveReasonModal(el.dataset.remove, ()=>render());
+    });
+    document.querySelectorAll('[data-payment]').forEach(el=>{
+      el.onclick = ()=> showPaymentModal(el.dataset.payment);
+    });
+  }
+
+  if (currentPage === 'reports'){
+    document.querySelectorAll('.floor-tab[data-reportpreset]').forEach(el=>{
+      el.onclick = async ()=>{
+        reportsPreset = el.dataset.reportpreset;
+        reportsData = null;
+        render();
+        if (reportsPreset !== 'custom') await loadReportsData();
+        render();
+      };
+    });
+    const applyBtn = document.getElementById('report-apply');
+    if (applyBtn) applyBtn.onclick = async ()=>{
+      reportsFrom = document.getElementById('report-from').value;
+      reportsTo = document.getElementById('report-to').value;
+      reportsData = null;
+      render();
+      await loadReportsData();
+      render();
+    };
+  }
+
+  if (currentPage === 'pending'){
+    document.querySelectorAll('[data-fetchphoto]').forEach(el=>{
+      el.onclick = ()=>{
+        const id = el.dataset.fetchphoto;
+        const wrap = document.getElementById('photo-preview-' + id);
+        renderLoadableThumb(wrap, '/api/pending?photo=1&id=' + id + '&type=id', 'ID proof');
+        el.remove();
+      };
+    });
+    document.querySelectorAll('[data-fetchpayment]').forEach(el=>{
+      el.onclick = ()=>{
+        const id = el.dataset.fetchpayment;
+        const wrap = document.getElementById('photo-preview-' + id);
+        renderLoadableThumb(wrap, '/api/pending?photo=1&id=' + id + '&type=payment', 'Payment screenshot');
+        el.remove();
+      };
+    });
+    document.querySelectorAll('[data-editpending]').forEach(el=>{
+      el.onclick = ()=> showEditPendingModal(el.dataset.editpending);
+    });
+    document.querySelectorAll('[data-reject]').forEach(el=>{
+      el.onclick = ()=> showRejectModal(el.dataset.reject);
+    });
+    document.querySelectorAll('[data-approve]').forEach(el=>{
+      el.onclick = async ()=>{
+        el.disabled = true; el.textContent = 'Approving…';
+        try{
+          const result = await apiPost('/api/pending', { action: 'approve', pendingId: el.dataset.approve });
+          await loadPendingList(); await loadPublicAvailability();
+          if (session) await loadFullStudents();
+          render();
+          const emailMsg = result.emailSent ? 'bill emailed' : 'email not sent: ' + (result.emailReason||'not configured');
+          const balanceMsg = result.shortfall > 0 ? ' — ₹' + result.shortfall + ' left as open balance' : '';
+          showToast('Approved (' + emailMsg + ')' + balanceMsg);
+        }catch(err){
+          showToast(err.message || 'Failed to approve request');
+          el.disabled = false; el.textContent = 'Approve';
+        }
+      };
+    });
+  }
+}
+
+// ============================================================
+// Init
+// ============================================================
+async function init(){
+  const parsed = parsePath(location.pathname);
+  currentPage = parsed.page;
+  if (currentPage === 'register') regStep = parsed.step || 1;
+
+  // Only fall back to resuming an in-progress registration draft when
+  // there's no specific deep link in the URL (i.e. someone just opened
+  // the site fresh) — an explicit URL always wins.
+  if (currentPage === 'availability'){
+    const draft = loadRegDraft();
+    if (draft && draft.regStep){
+      currentPage = 'register';
+      regStep = draft.regStep;
+      regFloor = draft.regFloor || 'F1';
+    }
+  }
+
+  await loadPublicAvailability();
+  await resolveSession();
+  await loadDataForPage(currentPage);
+
+  history.replaceState(
+    { page: currentPage, regStep: currentPage === 'register' ? regStep : undefined },
+    '',
+    pathForPage(currentPage, regStep)
+  );
+  render();
+}
+init();
+</script>
+</body>
+</html>

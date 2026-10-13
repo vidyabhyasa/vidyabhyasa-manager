@@ -64,7 +64,7 @@ export default async function handler(req, res){
       .slice(0,8)
       .map(([exam,count])=>({ exam, count }));
 
-    const today = new Date().toISOString().slice(0,10);
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
     const totalActiveStudents = allStudents.length;
     const activeWithLocker = allStudents.filter(s=>s.lockerId).length;
 

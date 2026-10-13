@@ -23,7 +23,7 @@ export default async function handler(req, res){
   if (!isAuthorized(req)) return res.status(401).json({ error: 'Not authorized' });
 
   try{
-    const today = new Date().toISOString().slice(0,10);
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
     const removedStudents = [];
     const clearedLockers = [];
 
