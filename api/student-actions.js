@@ -1,6 +1,7 @@
 import { sql, addDays, periodEnd, todayISO, toDateStr } from '../lib/db.js';
 import { requireStaff } from '../lib/auth.js';
-import { sendEmail, billEmailHTML } from '../lib/email.js';
+// Email is switched off for now. To re-enable, uncomment this import, the 'resendBill' route and doResendBill.
+// import { sendEmail, billEmailHTML } from '../lib/email.js';
 import { logAudit } from '../lib/audit.js';
 import { signBillToken } from '../lib/billToken.js';
 import { uploadToR2, newObjectKey, isR2Configured } from '../lib/r2.js';
@@ -24,7 +25,7 @@ export default async function handler(req, res){
     if (action === 'delete') return await doDelete(req, res, session);
     if (action === 'edit') return await doEdit(req, res, session);
     if (action === 'swap') return await doSwap(req, res, session);
-    if (action === 'resendBill') return await doResendBill(req, res, session);
+    // if (action === 'resendBill') return await doResendBill(req, res, session);
     if (action === 'generateBillToken') return await doGenerateBillToken(req, res, session);
     if (action === 'uploadIdPhoto') return await doUploadIdPhoto(req, res, session);
     if (action === 'attachPaymentScreenshot') return await doAttachPaymentScreenshot(req, res, session);
@@ -314,6 +315,7 @@ async function doSwap(req, res, session){
   res.status(200).json({ ok: true });
 }
 
+/* Disabled with email:
 async function doResendBill(req, res, session){
   const { studentId } = req.body || {};
   if (!studentId) return res.status(400).json({ error: 'studentId required' });
@@ -342,6 +344,7 @@ async function doResendBill(req, res, session){
 
   res.status(200).json({ ok: true, emailSent: result.sent, emailReason: result.reason });
 }
+*/
 
 async function doGenerateBillToken(req, res, session){
   const { studentId } = req.body || {};
@@ -356,7 +359,7 @@ async function doGenerateBillToken(req, res, session){
   await logAudit({
     actorId: session.id, actorName: session.label, action: 'resend_bill',
     targetType: 'student', targetId: studentId,
-    details: student.name + ' — bill QR link generated'
+    details: student.name + ' — bill link generated (copy link / QR)'
   });
 
   res.status(200).json({ token });

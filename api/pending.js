@@ -1,6 +1,7 @@
 import { sql, periodEnd, todayISO, toDateStr, toImageBuffer } from '../lib/db.js';
 import { requireStaff } from '../lib/auth.js';
-import { sendEmail, billEmailHTML } from '../lib/email.js';
+// Email is switched off for now. To re-enable, uncomment this import and the block below.
+// import { sendEmail, billEmailHTML } from '../lib/email.js';
 import { logAudit } from '../lib/audit.js';
 import { presetForMonths, LOCKER_MONTHLY, LOCKER_DEPOSIT } from '../lib/layout.js';
 import { fetchFromR2 } from '../lib/r2.js';
@@ -181,28 +182,28 @@ async function doApprove(req, res, session){
       payment_screenshot = null
     where id = ${pendingId}`;
 
-  let emailResult = { sent: false, reason: 'No email on file' };
-  if (p.email){
-    emailResult = await sendEmail({
-      to: p.email,
-      subject: 'Your Vidyabhyasa registration is confirmed',
-      html: billEmailHTML({
-        name: p.name, seatId: p.seat_id, lockerId: p.locker_id,
-        joinDate, expiryDate, lockerExpiryDate: lockerExpiry,
-        durationMonths: p.duration_months, amount: p.amount
-      })
-    });
-  }
+  // --- Approval email (disabled for now) ---
+  // let emailResult = { sent: false, reason: 'No email on file' };
+  // if (p.email){
+  //   emailResult = await sendEmail({
+  //     to: p.email,
+  //     subject: 'Your Vidyabhyasa registration is confirmed',
+  //     html: billEmailHTML({
+  //       name: p.name, seatId: p.seat_id, lockerId: p.locker_id,
+  //       joinDate, expiryDate, lockerExpiryDate: lockerExpiry,
+  //       durationMonths: p.duration_months, amount: p.amount
+  //     })
+  //   });
+  // }
 
   await logAudit({
     actorId: session.id, actorName: session.label, action: 'approve_pending',
     targetType: 'student', targetId: studentId,
     details: p.name + ' approved — seat ' + p.seat_id + (p.locker_id ? ', locker ' + p.locker_id : '') +
-      ' (bill ' + (emailResult.sent ? 'emailed' : 'not emailed: ' + emailResult.reason) + ')' +
       (shortfall > 0 ? ' — ₹' + shortfall + ' left as open balance' : '')
   });
 
-  res.status(200).json({ ok: true, studentId, emailSent: emailResult.sent, emailReason: emailResult.reason, shortfall: Math.max(0, shortfall) });
+  res.status(200).json({ ok: true, studentId, shortfall: Math.max(0, shortfall) });
 }
 
 async function doReject(req, res, session){

@@ -85,7 +85,6 @@ export default async function handler(req, res){
 
     res.status(200).json({
       range: { from, to },
-      emailConfigured: !!(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL),
       revenue: {
         total: totalRevenue,
         registration: registrationRevenue,

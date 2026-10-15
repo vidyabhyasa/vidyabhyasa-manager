@@ -1431,7 +1431,6 @@ function renderReports(){
       <h2>Reports</h2>
       <p>${range.from} to ${range.to}</p>
     </div>
-    ${r.emailConfigured === false ? `<div class="notice" style="background:var(--critical-bg);border-color:var(--critical);color:var(--critical-text);">Email isn't sending — <strong>RESEND_API_KEY</strong> and/or <strong>RESEND_FROM_EMAIL</strong> aren't set in Vercel's environment variables, so approval and bill emails are being silently skipped. Add both in your Vercel project settings, then redeploy.</div>` : ''}
     ${presetTabs}
 
     <h3 style="font-size:15px;margin:8px 0 14px;">Revenue</h3>
@@ -1536,7 +1535,7 @@ function renderAuditLog(){
     remove_student: 'Removed student', record_payment: 'Recorded payment',
     edit_payment: 'Edited payment', delete_payment: 'Deleted payment',
     assign_locker: 'Assigned locker', remove_locker: 'Removed locker',
-    swap_seat: 'Moved seat', swap_locker: 'Moved locker', resend_bill: 'Resent bill',
+    swap_seat: 'Moved seat', swap_locker: 'Moved locker', resend_bill: 'Shared bill link',
     cancel_charge: 'Cancelled partial-payment charge'
   };
   const rows = auditEntries.map(e=>`
@@ -3092,9 +3091,8 @@ function attachHandlers(){
           await loadPendingList(); await loadPublicAvailability();
           if (session) await loadFullStudents();
           render();
-          const emailMsg = result.emailSent ? 'bill emailed' : 'email not sent: ' + (result.emailReason||'not configured');
           const balanceMsg = result.shortfall > 0 ? ' — ₹' + result.shortfall + ' left as open balance' : '';
-          showToast('Approved (' + emailMsg + ')' + balanceMsg);
+          showToast('Approved' + balanceMsg);
         }catch(err){
           showToast(err.message || 'Failed to approve request');
           el.disabled = false; el.textContent = 'Approve';
