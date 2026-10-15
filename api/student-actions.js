@@ -4,6 +4,7 @@ import { requireStaff } from '../lib/auth.js';
 // import { sendEmail, billEmailHTML } from '../lib/email.js';
 import { logAudit } from '../lib/audit.js';
 import { signBillToken } from '../lib/billToken.js';
+import { branchOfResource } from '../lib/layout.js';
 import { uploadToR2, newObjectKey, isR2Configured } from '../lib/r2.js';
 
 const EDITABLE_STUDENT = {
@@ -191,7 +192,7 @@ async function doLocker(req, res, session){
   const { studentId, lockerAction } = req.body || {};
   if (!studentId) return res.status(400).json({ error: 'studentId required' });
 
-  const rows = await sql`select name, locker_id from students where id = ${studentId}`;
+  const rows = await sql`select name, locker_id, branch_id from students where id = ${studentId}`;
   const student = rows[0];
 
   if (lockerAction === 'remove'){
@@ -210,6 +211,8 @@ async function doLocker(req, res, session){
 
   const { lockerId, floorId, months, amount } = req.body || {};
   if (!lockerId || !floorId || !months || !amount) return res.status(400).json({ error: 'lockerId, floorId, months, and amount are required' });
+  const lockerBranch = branchOfResource(lockerId);
+  if (!lockerBranch || (student && lockerBranch.id !== student.branch_id)) return res.status(400).json({ error: 'That locker belongs to a different branch.' });
 
   const taken = await sql`select 1 from students where locker_id = ${lockerId} limit 1`;
   if (taken.length) return res.status(409).json({ error: 'That locker was just taken. Please pick another.' });
@@ -245,7 +248,7 @@ async function doDelete(req, res, session){
 
   await logAudit({
     actorId: session.id, actorName: session.label, action: 'remove_student',
-    targetType: 'student', targetId: studentId,
+    targetType: 'student', targetId: studentId, branchId: student.branch_id,
     details: student.name + ' (seat ' + student.seat_id + (student.locker_id ? ', locker ' + student.locker_id : '') + ')' +
       (reason ? ' — reason: ' + reason : ' — no reason given')
   });
@@ -287,6 +290,9 @@ async function doSwap(req, res, session){
   const rows = await sql`select * from students where id = ${studentId}`;
   const student = rows[0];
   if (!student) return res.status(404).json({ error: 'Student not found' });
+
+  const targetBranch = branchOfResource(targetId);
+  if (!targetBranch || targetBranch.id !== student.branch_id) return res.status(400).json({ error: 'You can only move within the same branch.' });
 
   if (kind === 'seat'){
     const taken = await sql`select 1 from students where seat_id = ${targetId} and id != ${studentId} limit 1`;

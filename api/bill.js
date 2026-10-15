@@ -1,4 +1,5 @@
 import { sql, toDateStr } from '../lib/db.js';
+import { branchById } from '../lib/layout.js';
 import { verifyBillToken } from '../lib/billToken.js';
 
 function errorPage(message){
@@ -26,7 +27,7 @@ export default async function handler(req, res){
              to_char(join_date, 'YYYY-MM-DD') as "joinDate",
              duration_months as "durationMonths",
              to_char(expiry_date, 'YYYY-MM-DD') as "expiryDate",
-             seat_id as "seatId", locker_id as "lockerId",
+             seat_id as "seatId", branch_id as "branchId", locker_id as "lockerId",
              locker_months as "lockerMonths",
              to_char(locker_expiry_date, 'YYYY-MM-DD') as "lockerExpiryDate"
       from students where id = ${studentId}`;
@@ -68,7 +69,7 @@ export default async function handler(req, res){
   <div class="card">
     <img class="logo" src="/logo.jpeg" alt="Vidyabhyasa">
     <h1>Vidyabhyasa Study Center</h1>
-    <p class="sub">Bill for ${student.name}</p>
+    <p class="sub">${(branchById(student.branchId) || {}).name ? (branchById(student.branchId).name + ' branch · ') : ''}Bill for ${student.name}</p>
     <div class="row"><span>Seat</span><span>${student.seatId}</span></div>
     ${student.lockerId ? `<div class="row"><span>Locker</span><span>${student.lockerId}</span></div>` : ''}
     <div class="row"><span>Exam</span><span>${student.examPrep}</span></div>

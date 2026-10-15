@@ -41,6 +41,7 @@ async function doList(req, res){
            to_char(join_date, 'YYYY-MM-DD') as "joinDate",
            duration_months as "durationMonths",
            seat_id as "seatId",
+           branch_id as "branchId",
            floor,
            locker_id as "lockerId",
            locker_floor as "lockerFloor",
@@ -145,12 +146,12 @@ async function doApprove(req, res, session){
     insert into students (
       name, phone, email, exam_prep, join_date, duration_months, expiry_date,
       seat_id, floor, locker_id, locker_floor, locker_join_date, locker_months,
-      locker_expiry_date, locker_deposit, id_photo, id_photo_type, id_photo_key
+      locker_expiry_date, locker_deposit, id_photo, id_photo_type, id_photo_key, branch_id
     ) values (
       ${p.name}, ${p.phone}, ${p.email}, ${p.exam_prep}, ${joinDate}, ${p.duration_months}, ${expiryDate},
       ${p.seat_id}, ${p.floor}, ${p.locker_id}, ${p.locker_floor},
       ${p.locker_id ? joinDate : null}, ${p.locker_months},
-      ${lockerExpiry}, ${p.locker_id ? 200 : null}, ${idPhotoBuffer}, ${idPhotoType}, ${idPhotoKey}
+      ${lockerExpiry}, ${p.locker_id ? 200 : null}, ${idPhotoBuffer}, ${idPhotoType}, ${idPhotoKey}, ${p.branch_id || 'tk'}
     )
     returning id`;
   const studentId = inserted[0].id;

@@ -9,7 +9,7 @@ export default async function handler(req, res){
   try{
     const rows = await sql`
       select id, actor_name as "actorName", action, target_type as "targetType",
-             target_id as "targetId", details, created_at as "createdAt"
+             target_id as "targetId", branch_id as "branchId", details, created_at as "createdAt"
       from audit_log
       order by created_at desc
       limit 300`;

@@ -23,6 +23,7 @@ async function doList(req, res){
            expiry_date as "expiryDate",
            seat_id as "seatId",
            floor,
+           branch_id as "branchId",
            locker_id as "lockerId",
            locker_floor as "lockerFloor",
            locker_join_date as "lockerJoinDate",

@@ -199,10 +199,11 @@
       <img src="/logo.jpeg" alt="Vidyabhyasa" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;">
       <div>
         <h1>Vidyabhyasa</h1>
-        <p>Study center, Mysuru</p>
+        <p id="brand-sub">Study center, Mysuru</p>
       </div>
     </div>
     <div id="nav">
+      <div class="nav-item guest-only" data-page="branches"><span class="nav-icon">⌂</span> Branches</div>
       <div class="nav-item guest-only" data-page="availability"><span class="nav-icon">◎</span> Availability</div>
       <div class="nav-item auth-only" data-page="dashboard"><span class="nav-icon">▦</span> Dashboard</div>
       <div class="nav-item auth-only" data-page="pending"><span class="nav-icon">⏳</span> Pending approvals</div>
@@ -248,17 +249,47 @@ async function apiPost(path, body){
 // ============================================================
 // Static config
 // ============================================================
-const FLOORS = [
-  { id:'F1', label:'First floor', sub:'Non-AC', count:87 },
-  { id:'F2', label:'Second floor', sub:'AC', count:43 }
+// Branches — keep in sync with lib/layout.js. Floor/locker ids are unique
+// across branches (TK: F1/F2/L1/L2, Ramakrishna Nagar: R1/RL1).
+const BRANCHES = [
+  {
+    id: 'tk', slug: 'tk-layout', name: 'TK Layout',
+    floors: [
+      { id:'F1', label:'First floor', sub:'Non-AC', count:87 },
+      { id:'F2', label:'Second floor', sub:'AC', count:43 }
+    ],
+    lockers: [
+      { id:'L1', label:'1st floor lockers', sub:'', count:32 },
+      { id:'L2', label:'2nd floor lockers', sub:'', count:16 }
+    ],
+    seatToLockerFloor: { F1:'L1', F2:'L2' }
+  },
+  {
+    id: 'rk', slug: 'ramakrishna-nagar', name: 'Ramakrishna Nagar',
+    floors: [ { id:'R1', label:'Study hall', sub:'Non-AC', count:150 } ],
+    lockers: [ { id:'RL1', label:'Lockers', sub:'', count:20 } ],
+    seatToLockerFloor: { R1:'RL1' }
+  }
 ];
-const LOCKERS = [
-  { id:'L1', label:'1st floor lockers', sub:'', count:32 },
-  { id:'L2', label:'2nd floor lockers', sub:'', count:16 }
-];
+const BRANCH_STORE_KEY = 'vidya_branch';
+function branchById(id){ return BRANCHES.find(b=>b.id===id) || null; }
+function branchBySlug(slug){ return BRANCHES.find(b=>b.slug===slug) || null; }
+function branchOfResource(resourceId){
+  const prefix = String(resourceId || '').split('-')[0];
+  return BRANCHES.find(b => b.floors.some(f=>f.id===prefix) || b.lockers.some(f=>f.id===prefix)) || null;
+}
+function branchNameOf(branchId){ const b = branchById(branchId); return b ? b.name : ''; }
+
+// The branch whose layout is currently on screen (dashboard, availability,
+// registration). FLOORS / LOCKERS always describe this branch.
+let currentBranchId = 'tk';
+let FLOORS = BRANCHES[0].floors;
+let LOCKERS = BRANCHES[0].lockers;
+let SEAT_TO_LOCKER_FLOOR = BRANCHES[0].seatToLockerFloor;
+// Staff list pages (subscriptions, pending, reports, audit) can also show 'all'.
+let branchScope = 'tk';
 const LOCKER_MONTHLY = 100;
 const LOCKER_DEPOSIT = 200;
-const SEAT_TO_LOCKER_FLOOR = { F1:'L1', F2:'L2' };
 const PAYMENT_PRESETS = [1000, 1900, 2800];
 const GATED_PAGES = ['dashboard', 'subscriptions', 'reports', 'pending', 'audit'];
 
@@ -294,6 +325,8 @@ let session = null;               // { role, label } once logged in
 let students = [];                 // full records — staff only
 let freeSeats = [];                // [{floor,num,resourceId}] — public
 let freeLockers = [];
+let allFreeSeats = [];             // every branch, straight from the API
+let allFreeLockers = [];
 let currentPage = 'availability';
 let dashView = 'seats';
 let currentFloor = 'F1';
@@ -317,10 +350,40 @@ let auditEntries = [];             // founder-only: audit log
 
 const REG_DRAFT_KEY = 'vidya_register_draft';
 
+function setBranch(id){
+  const b = branchById(id);
+  if (!b) return;
+  const changed = b.id !== currentBranchId;
+  currentBranchId = b.id;
+  FLOORS = b.floors; LOCKERS = b.lockers; SEAT_TO_LOCKER_FLOOR = b.seatToLockerFloor;
+  if (changed){
+    currentFloor = FLOORS[0].id; currentLockerFloor = LOCKERS[0].id;
+    regFloor = FLOORS[0].id; availFloorFilter = 'all';
+  }
+  applyBranchToFree();
+  try{ localStorage.setItem(BRANCH_STORE_KEY, b.id); }catch(e){}
+}
+// Staff switcher: 'tk' | 'rk' | 'all'
+function selectBranchScope(scope){
+  branchScope = scope;
+  if (scope !== 'all'){
+    // A half-filled registration for the other branch makes no sense here.
+    if (scope !== currentBranchId) clearRegDraft();
+    setBranch(scope);
+  }
+}
+// Pages that need one concrete branch (layout grids / registration) can't show 'all'.
+function resolveScopeForPage(page){
+  if (branchScope === 'all' && ['dashboard','register','availability'].includes(page)) branchScope = currentBranchId;
+}
+function inScope(branchId){ return branchScope === 'all' || branchId === branchScope; }
+function inScopeResource(resourceId){ const b = branchOfResource(resourceId); return !b || inScope(b.id); }
+
 // ============================================================
 // Routing — real URLs, working back/forward, shareable links.
 // ============================================================
 const PAGE_PATHS = {
+  branches: '/',
   availability: '/',
   dashboard: '/dashboard',
   pending: '/pending',
@@ -329,37 +392,56 @@ const PAGE_PATHS = {
   audit: '/audit'
 };
 const PATH_TO_PAGE = {
-  '/': 'availability',
+  '/': 'branches',
   '/dashboard': 'dashboard',
   '/pending': 'pending',
   '/subscriptions': 'subscriptions',
   '/reports': 'reports',
   '/audit': 'audit'
 };
-const KNOWN_PAGES = ['availability', 'dashboard', 'pending', 'register', 'subscriptions', 'reports', 'audit'];
+const KNOWN_PAGES = ['branches', 'availability', 'dashboard', 'pending', 'register', 'subscriptions', 'reports', 'audit'];
 
+function branchSlugPrefix(){
+  const b = branchById(currentBranchId);
+  return b ? '/' + b.slug : '';
+}
 function pathForPage(page, step){
   if (page === 'register'){
-    if (step === 2) return '/register/details';
-    if (step === 3) return '/register/payment';
-    if (step === 4) return '/register/done';
-    return '/register';
+    const base = branchSlugPrefix() + '/register';
+    if (step === 2) return base + '/details';
+    if (step === 3) return base + '/payment';
+    if (step === 4) return base + '/done';
+    return base;
   }
+  if (page === 'availability') return branchSlugPrefix() || '/';
   return PAGE_PATHS[page] || '/';
 }
 
 function parsePath(pathname){
   const clean = pathname.replace(/\/+$/, '') || '/';
-  if (clean.startsWith('/register')){
-    const sub = clean.slice('/register'.length);
+  const parts = clean.split('/').filter(Boolean);
+  let branch = null;
+  if (parts.length && branchBySlug(parts[0])){ branch = branchBySlug(parts[0]).id; parts.shift(); }
+  const rest = '/' + parts.join('/');
+  if (rest.startsWith('/register')){
+    const sub = rest.slice('/register'.length);
     let step = 1;
     if (sub === '/details') step = 2;
     else if (sub === '/payment') step = 3;
     else if (sub === '/done') step = 4;
-    return { page: 'register', step };
+    return { page: 'register', step, branch };
   }
-  const page = PATH_TO_PAGE[clean];
-  return { page: KNOWN_PAGES.includes(page) ? page : 'availability' };
+  if (branch && rest === '/') return { page: 'availability', branch };
+  const page = PATH_TO_PAGE[rest];
+  return { page: KNOWN_PAGES.includes(page) ? page : 'branches', branch };
+}
+
+// A branch in the URL (public pages) wins over whatever was remembered.
+function applyParsedBranch(parsed){
+  if (parsed && parsed.branch){
+    setBranch(parsed.branch);
+    if (branchScope !== 'all') branchScope = parsed.branch;
+  }
 }
 
 async function loadDataForPage(page){
@@ -390,9 +472,10 @@ async function loadDataForPage(page){
 async function navigateTo(page, opts){
   opts = opts || {};
   currentPage = page;
+  resolveScopeForPage(page);
   if (page === 'register' && opts.step) regStep = opts.step;
   const path = pathForPage(page, regStep);
-  const state = { page, regStep: page === 'register' ? regStep : undefined };
+  const state = { page, regStep: page === 'register' ? regStep : undefined, branch: currentBranchId };
   if (opts.replace) history.replaceState(state, '', path);
   else history.pushState(state, '', path);
   await loadDataForPage(page);
@@ -407,7 +490,9 @@ window.onpopstate = async (event)=>{
   } else {
     const parsed = parsePath(location.pathname);
     page = parsed.page; step = parsed.step;
+    applyParsedBranch(parsed);
   }
+  if (state && state.branch) setBranch(state.branch);
   currentPage = page;
   if (page === 'register') regStep = step || 1;
   await loadDataForPage(page);
@@ -451,7 +536,7 @@ function formatDateHuman(dateStr){
 function friendlyResourceLabel(id){
   if (!id) return '';
   const [prefix, num] = id.split('-');
-  const floorMap = { F1: 'First floor', F2: 'Second floor', L1: 'First floor', L2: 'Second floor' };
+  const floorMap = { F1: 'First floor', F2: 'Second floor', L1: 'First floor', L2: 'Second floor', R1: 'Study hall', RL1: 'Study hall' };
   return (floorMap[prefix] || prefix) + ' - ' + num;
 }
 function titleCase(str){
@@ -489,6 +574,10 @@ function totalPaid(student){
   return (student.payments || []).reduce((a,p)=>a+Number(p.amount||0), 0);
 }
 
+function waBrand(student){
+  const n = branchNameOf(student.branchId);
+  return 'Vidyabhyasa' + (n ? ' (' + n + ')' : '');
+}
 function waLink(student, kind){
   let phone = (student.phone || '').replace(/\D/g,'');
   if (phone.length === 10) phone = '91' + phone;
@@ -500,11 +589,11 @@ function waLink(student, kind){
   let msg;
   if (kind === 'critical'){
     const alsoLocker = student.lockerId ? ' and locker' : '';
-    msg = 'Hi ' + name + ', your Vidyabhyasa seat (' + seatLabelFriendly + ') subscription expired on ' + dateHuman + ' and is now significantly overdue. Please renew TODAY, or we will have to clear your seat' + alsoLocker + ' for the next student. ' + payNote;
+    msg = 'Hi ' + name + ', your ' + waBrand(student) + ' seat (' + seatLabelFriendly + ') subscription expired on ' + dateHuman + ' and is now significantly overdue. Please renew TODAY, or we will have to clear your seat' + alsoLocker + ' for the next student. ' + payNote;
   } else if (kind === 'overdue'){
-    msg = 'Hi ' + name + ', your Vidyabhyasa seat (' + seatLabelFriendly + ') subscription expired on ' + dateHuman + '. Please renew to continue holding your seat. ' + payNote;
+    msg = 'Hi ' + name + ', your ' + waBrand(student) + ' seat (' + seatLabelFriendly + ') subscription expired on ' + dateHuman + '. Please renew to continue holding your seat. ' + payNote;
   } else {
-    msg = 'Hi ' + name + ', a reminder that your Vidyabhyasa seat (' + seatLabelFriendly + ') subscription expires on ' + dateHuman + ' (' + Math.max(daysLeft,0) + ' day(s) left). Please renew soon to keep your seat. ' + payNote;
+    msg = 'Hi ' + name + ', a reminder that your ' + waBrand(student) + ' seat (' + seatLabelFriendly + ') subscription expires on ' + dateHuman + ' (' + Math.max(daysLeft,0) + ' day(s) left). Please renew soon to keep your seat. ' + payNote;
   }
   return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg);
 }
@@ -518,11 +607,11 @@ function lockerWaLink(student, kind){
   const payNote = 'Pay via UPI ID ' + UPI_ID + ' and send the payment screenshot to this number.';
   let msg;
   if (kind === 'critical'){
-    msg = 'Hi ' + name + ', your Vidyabhyasa locker (' + lockerLabelFriendly + ') subscription expired on ' + dateHuman + ' and is now significantly overdue. Please renew TODAY, or we will have to clear your locker for the next student. ' + payNote;
+    msg = 'Hi ' + name + ', your ' + waBrand(student) + ' locker (' + lockerLabelFriendly + ') subscription expired on ' + dateHuman + ' and is now significantly overdue. Please renew TODAY, or we will have to clear your locker for the next student. ' + payNote;
   } else if (kind === 'overdue'){
-    msg = 'Hi ' + name + ', your Vidyabhyasa locker (' + lockerLabelFriendly + ') subscription expired on ' + dateHuman + '. Please renew to keep your locker. ' + payNote;
+    msg = 'Hi ' + name + ', your ' + waBrand(student) + ' locker (' + lockerLabelFriendly + ') subscription expired on ' + dateHuman + '. Please renew to keep your locker. ' + payNote;
   } else {
-    msg = 'Hi ' + name + ', a reminder that your Vidyabhyasa locker (' + lockerLabelFriendly + ') subscription expires on ' + dateHuman + ' (' + Math.max(daysLeft,0) + ' day(s) left). Please renew soon. ' + payNote;
+    msg = 'Hi ' + name + ', a reminder that your ' + waBrand(student) + ' locker (' + lockerLabelFriendly + ') subscription expires on ' + dateHuman + ' (' + Math.max(daysLeft,0) + ' day(s) left). Please renew soon. ' + payNote;
   }
   return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg);
 }
@@ -650,11 +739,16 @@ function resizeImageDataURL(dataUrl, maxDim, quality){
 async function loadPublicAvailability(){
   try{
     const data = await apiGet('/api/availability');
-    freeSeats = data.freeSeats || [];
-    freeLockers = data.freeLockers || [];
+    allFreeSeats = data.freeSeats || [];
+    allFreeLockers = data.freeLockers || [];
   }catch(e){
-    freeSeats = []; freeLockers = [];
+    allFreeSeats = []; allFreeLockers = [];
   }
+  applyBranchToFree();
+}
+function applyBranchToFree(){
+  freeSeats = allFreeSeats.filter(r => FLOORS.some(f=>f.id===r.floor));
+  freeLockers = allFreeLockers.filter(r => LOCKERS.some(f=>f.id===r.floor));
 }
 function isSeatFree(floorId, num){
   const label = seatLabel(floorId, num);
@@ -717,7 +811,8 @@ function render(){
   });
   updateTopHeader();
   const main = document.getElementById('main');
-  if (currentPage === 'availability' && session){
+  resolveScopeForPage(currentPage);
+  if ((currentPage === 'availability' || currentPage === 'branches') && session){
     currentPage = 'dashboard';
     history.replaceState({ page: 'dashboard' }, '', pathForPage('dashboard'));
     main.innerHTML = renderDashboard();
@@ -732,6 +827,7 @@ function render(){
     history.replaceState({ page: 'dashboard' }, '', pathForPage('dashboard'));
     main.innerHTML = renderDashboard();
   } else if (currentPage === 'dashboard') main.innerHTML = renderDashboard();
+  else if (currentPage === 'branches') main.innerHTML = renderBranchPicker();
   else if (currentPage === 'availability') main.innerHTML = renderAvailability();
   else if (currentPage === 'register') main.innerHTML = renderRegister();
   else if (currentPage === 'subscriptions') main.innerHTML = renderSubscriptions();
@@ -744,7 +840,7 @@ function render(){
 async function loadReportsData(){
   const range = reportRangeForPreset(reportsPreset);
   try{
-    const data = await apiGet('/api/reports?from=' + range.from + '&to=' + range.to);
+    const data = await apiGet('/api/reports?from=' + range.from + '&to=' + range.to + '&branch=' + encodeURIComponent(branchScope));
     reportsData = data;
   }catch(e){
     reportsData = null;
@@ -752,21 +848,45 @@ async function loadReportsData(){
   }
 }
 
+function branchSwitcherHTML(){
+  const needsOne = ['dashboard','register'].includes(currentPage);
+  const chips = BRANCHES.map(b=>`<span class="floor-tab ${branchScope===b.id?'active':''}" data-branchscope="${b.id}">${b.name}</span>`);
+  if (!needsOne) chips.push(`<span class="floor-tab ${branchScope==='all'?'active':''}" data-branchscope="all">All branches</span>`);
+  return `<div class="floor-tabs" style="margin:0;">${chips.join('')}</div>`;
+}
 function updateTopHeader(){
   const box = document.getElementById('top-header');
   if (!box) return;
+  const sub = document.getElementById('brand-sub');
+  if (sub){
+    const b = branchById(currentBranchId);
+    sub.textContent = (!session && currentPage === 'branches') ? 'Study center, Mysuru' : (b ? b.name + ' · Mysuru' : 'Study center, Mysuru');
+  }
   if (session){
     box.innerHTML = `
+      ${branchSwitcherHTML()}
       <span class="who">Signed in as <strong>${session.label}</strong> (${session.role})</span>
       <a href="#" id="logout-link" class="logout-link">Log out</a>`;
     document.getElementById('logout-link').onclick = async (e)=>{
       e.preventDefault();
       await apiPost('/api/auth?action=logout', {}).catch(()=>{});
       session = null;
-      navigateTo('availability');
+      navigateTo('branches');
     };
+    box.querySelectorAll('[data-branchscope]').forEach(el=>{
+      el.onclick = async ()=>{
+        selectBranchScope(el.dataset.branchscope);
+        if (currentPage === 'reports') await loadReportsData();
+        render();
+      };
+    });
   } else {
-    box.innerHTML = `<button class="btn" id="header-login-btn">Staff login</button>`;
+    const showSwitch = currentPage !== 'branches';
+    box.innerHTML = `
+      ${showSwitch ? `<a href="/" id="switch-branch-link" class="logout-link">Switch branch</a>` : ''}
+      <button class="btn" id="header-login-btn">Staff login</button>`;
+    const sw = document.getElementById('switch-branch-link');
+    if (sw) sw.onclick = (e)=>{ e.preventDefault(); navigateTo('branches'); };
     document.getElementById('header-login-btn').onclick = ()=> navigateTo('dashboard');
   }
 }
@@ -921,7 +1041,7 @@ function renderDashboard(){
   return `
     <div class="page-head">
       <h2>${isLockers ? 'Locker dashboard' : 'Seat dashboard'}</h2>
-      <p>Live view of occupied and free ${isLockers ? 'lockers' : 'seats'} across both floors.</p>
+      <p>Live view of occupied and free ${isLockers ? 'lockers' : 'seats'} across ${FLOORS.length === 1 ? 'the floor' : 'both floors'}.</p>
     </div>
     <div class="floor-tabs">
       <div class="floor-tab ${!isLockers?'active':''}" data-view="seats">Seats</div>
@@ -983,8 +1103,9 @@ function renderDashboard(){
 }
 
 function renderCleanupPanel(){
-  if (!cleanupFlags.length) return '';
-  const rows = cleanupFlags.map(f=>`
+  const flags = cleanupFlags.filter(f => inScopeResource(f.resourceId));
+  if (!flags.length) return '';
+  const rows = flags.map(f=>`
     <div class="row">
       <span>${f.resourceType === 'seat' ? 'Seat' : 'Locker'} ${f.resourceId} <span style="color:var(--muted);">(${f.floor})</span></span>
       <span><button class="btn btn-sm btn-outline" data-clearcleanup="${f.id}">Mark cleaned</button></span>
@@ -992,7 +1113,7 @@ function renderCleanupPanel(){
   `).join('');
   return `
     <div class="card" style="border-left:4px solid var(--critical);">
-      <h3 style="font-size:15px;margin-bottom:4px;">Needs cleaning <span class="badge critical" style="margin-left:6px;">${cleanupFlags.length}</span></h3>
+      <h3 style="font-size:15px;margin-bottom:4px;">Needs cleaning <span class="badge critical" style="margin-left:6px;">${flags.length}</span></h3>
       <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Auto-removed after being 3+ days overdue — give these a wipe-down before the next student sits there.</p>
       ${rows}
     </div>
@@ -1002,6 +1123,41 @@ function renderCleanupPanel(){
 // ============================================================
 // Availability (public — FREE seats/lockers only, nothing else)
 // ============================================================
+function renderBranchPicker(){
+  const cards = BRANCHES.map(b=>{
+    const seats = b.floors.reduce((a,f)=>a+f.count,0);
+    const lockers = b.lockers.reduce((a,f)=>a+f.count,0);
+    const free = allFreeSeats.filter(r => b.floors.some(f=>f.id===r.floor)).length;
+    return `
+      <div class="card" style="max-width:340px;flex:1 1 260px;">
+        <h3 style="font-size:18px;margin-bottom:4px;">${b.name}</h3>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:14px;">${seats} seats · ${lockers} lockers · ${free} seats free now</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn" data-pickbranch="${b.id}" data-pickto="register">Register here</button>
+          <button class="btn btn-outline" data-pickbranch="${b.id}" data-pickto="availability">View availability</button>
+        </div>
+      </div>`;
+  }).join('');
+  return `
+    <div class="page-head">
+      <h2>Choose your branch</h2>
+      <p>Vidyabhyasa Study Center has more than one branch — pick the one you want to join.</p>
+    </div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;">${cards}</div>`;
+}
+
+function scopeTagHTML(){
+  const label = branchScope === 'all' ? 'All branches' : branchNameOf(branchScope);
+  return `<span class="badge pending" style="margin-left:8px;vertical-align:middle;">${label}</span>`;
+}
+function visiblePending(){ return pendingList.filter(p => inScope(p.branchId || 'tk')); }
+function visibleStudents(){ return students.filter(st => inScope(st.branchId || 'tk')); }
+
+function branchTagHTML(){
+  const b = branchById(currentBranchId);
+  return b ? `<span class="badge pending" style="margin-left:8px;vertical-align:middle;">${b.name}</span>` : '';
+}
+
 function renderAvailability(){
   const isLockers = availView === 'lockers';
   const list = isLockers ? LOCKERS : FLOORS;
@@ -1028,7 +1184,7 @@ function renderAvailability(){
 
   return `
     <div class="page-head">
-      <h2>Availability</h2>
+      <h2>Availability${branchTagHTML()}</h2>
       <p>Free seats and lockers right now — click one to start a registration.</p>
     </div>
     <div class="metrics">
@@ -1066,7 +1222,7 @@ function renderRegisterRules(){
   const accepted = draft ? !!draft.rulesAccepted : false;
   return `
     <div class="page-head">
-      <h2>Before you begin</h2>
+      <h2>Before you begin${branchTagHTML()}</h2>
       ${stepProgress(1)}
     </div>
     <div class="card" style="max-width:640px;">
@@ -1106,7 +1262,7 @@ function renderRegisterDetails(){
 
   return `
     <div class="page-head">
-      <h2>Your details</h2>
+      <h2>Your details${branchTagHTML()}</h2>
       ${stepProgress(2)}
     </div>
     <div class="card">
@@ -1240,7 +1396,7 @@ function renderRegisterPayment(){
   const payMethod = draft['pay-method'] || 'upi';
   return `
     <div class="page-head">
-      <h2>Payment</h2>
+      <h2>Payment${branchTagHTML()}</h2>
       ${stepProgress(3)}
     </div>
     <div class="card" style="max-width:420px;">
@@ -1300,7 +1456,7 @@ function renderRegisterDone(){
 // Subscriptions (staff only)
 // ============================================================
 function renderSubscriptions(){
-  let list = students.slice();
+  let list = visibleStudents();
   if (subSort === 'name') list.sort((a,b)=> a.name.localeCompare(b.name));
   else if (subSort === 'paid') list.sort((a,b)=> totalPaid(b) - totalPaid(a));
   else list.sort((a,b)=> new Date(a.expiryDate) - new Date(b.expiryDate));
@@ -1343,7 +1499,7 @@ function renderSubscriptions(){
 
   return `
     <div class="page-head">
-      <h2>Subscriptions</h2>
+      <h2>Subscriptions${scopeTagHTML()}</h2>
       <p>Track renewals, record payments, and send WhatsApp reminders before and after expiry.</p>
     </div>
     <div class="notice">WhatsApp reminders open a pre-filled chat you send manually. To automate sending later, you'd connect a WhatsApp Business API or SMS gateway. Students 3+ days overdue (critical) are automatically removed overnight and flagged for cleaning on the Dashboard.</div>
@@ -1423,16 +1579,25 @@ function renderReports(){
   }
 
   const maxFloor = Math.max(1, ...Object.values(r.registrations.byFloor));
-  const floorLabels = { F1:'First floor', F2:'Second floor' };
+  const floorLabels = {};
+  BRANCHES.forEach(b=>b.floors.forEach(f=>{ floorLabels[f.id] = (BRANCHES.length > 1 ? b.name + ' — ' : '') + f.label; }));
   const maxExam = Math.max(1, ...r.topExams.map(e=>e.count));
 
   return `
     <div class="page-head">
-      <h2>Reports</h2>
+      <h2>Reports${scopeTagHTML()}</h2>
       <p>${range.from} to ${range.to}</p>
     </div>
     ${presetTabs}
 
+    ${branchScope === 'all' && r.byBranch ? `
+      <h3 style="font-size:15px;margin:8px 0 14px;">By branch</h3>
+      <div class="card" style="padding:0;overflow-x:auto;">
+        <table>
+          <thead><tr><th>Branch</th><th>Revenue</th><th>Payments</th><th>New registrations</th><th>Active students</th></tr></thead>
+          <tbody>${r.byBranch.map(b=>`<tr><td><strong>${b.name}</strong></td><td>₹${b.revenue}</td><td>${b.payments}</td><td>${b.newRegistrations}</td><td>${b.activeStudents}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>` : ''}
     <h3 style="font-size:15px;margin:8px 0 14px;">Revenue</h3>
     <div class="metrics">
       <div class="metric-card"><div class="label">Total collected</div><div class="value">₹${r.revenue.total}</div></div>
@@ -1538,17 +1703,17 @@ function renderAuditLog(){
     swap_seat: 'Moved seat', swap_locker: 'Moved locker', resend_bill: 'Shared bill link',
     cancel_charge: 'Cancelled partial-payment charge'
   };
-  const rows = auditEntries.map(e=>`
+  const rows = auditEntries.filter(e => branchScope === 'all' || !e.branchId || e.branchId === branchScope).map(e=>`
     <tr>
       <td style="white-space:nowrap;">${timeAgo(e.createdAt)}<br><span style="color:var(--muted);font-size:11px;">${formatDateTimeIST(e.createdAt)}</span></td>
-      <td>${e.actorName || '—'}</td>
+      <td>${e.actorName || '—'}${branchScope === 'all' && e.branchId ? `<br><span style="color:var(--muted);font-size:11px;">${branchNameOf(e.branchId)}</span>` : ''}</td>
       <td>${actionLabels[e.action] || e.action}</td>
       <td>${e.details || ''}</td>
     </tr>
   `).join('');
   return `
     <div class="page-head">
-      <h2>Audit log</h2>
+      <h2>Audit log${scopeTagHTML()}</h2>
       <p>Every approval, edit, removal, and payment change made by staff — most recent first.</p>
     </div>
     <div class="card">
@@ -1561,13 +1726,13 @@ function renderAuditLog(){
 }
 
 function renderPending(){
-  if (!pendingList.length){
+  if (!visiblePending().length){
     return `
       <div class="page-head"><h2>Pending approvals</h2><p>New registration requests waiting for review.</p></div>
       <p class="empty">No pending requests right now.</p>
     `;
   }
-  const cards = pendingList.map(p=>`
+  const cards = visiblePending().map(p=>`
     <div class="card" id="pending-card-${p.id}" style="padding:0;overflow:hidden;">
       <div style="padding:20px 24px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;background:var(--paper-2);border-bottom:1px solid var(--line);">
         <div>
@@ -1583,6 +1748,7 @@ function renderPending(){
         <div class="grid-2" style="gap:0 28px;">
           <div>
             <p style="font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin-bottom:8px;font-weight:600;">Requested</p>
+            <div class="row"><span>Branch</span><span>${branchNameOf(p.branchId || 'tk')}</span></div>
             <div class="row"><span>Seat</span><span style="font-weight:600;">${p.seatId}</span></div>
             ${p.lockerId ? `<div class="row"><span>Locker</span><span style="font-weight:600;">${p.lockerId}</span></div>` : ''}
             <div class="row"><span>Exam</span><span>${p.examPrep}</span></div>
@@ -1613,7 +1779,7 @@ function renderPending(){
     </div>
   `).join('');
   return `
-    <div class="page-head"><h2>Pending approvals</h2><p>${pendingList.length} request${pendingList.length===1?'':'s'} waiting for review.</p></div>
+    <div class="page-head"><h2>Pending approvals${scopeTagHTML()}</h2><p>${visiblePending().length} request${visiblePending().length===1?'':'s'} waiting for review.</p></div>
     ${cards}
   `;
 }
@@ -2704,6 +2870,17 @@ function attachHandlers(){
     return;
   }
 
+  if (currentPage === 'branches'){
+    document.querySelectorAll('[data-pickbranch]').forEach(el=>{
+      el.onclick = ()=>{
+        setBranch(el.dataset.pickbranch);
+        branchScope = el.dataset.pickbranch;
+        if (el.dataset.pickto === 'register'){ clearRegDraft(); regStep = 1; navigateTo('register', { step: 1 }); }
+        else navigateTo('availability');
+      };
+    });
+  }
+
   if (currentPage === 'dashboard'){
     document.querySelectorAll('.floor-tab[data-view]').forEach(el=>{
       el.onclick = ()=>{ dashView = el.dataset.view; dashStatusFilter = 'all'; dashSearch = ''; render(); };
@@ -3106,19 +3283,25 @@ function attachHandlers(){
 // Init
 // ============================================================
 async function init(){
+  // Remember the last branch used on this device, unless the URL names one.
+  try{
+    const saved = localStorage.getItem(BRANCH_STORE_KEY);
+    if (saved && branchById(saved)) { setBranch(saved); branchScope = saved; }
+  }catch(e){}
   const parsed = parsePath(location.pathname);
   currentPage = parsed.page;
   if (currentPage === 'register') regStep = parsed.step || 1;
+  applyParsedBranch(parsed);
 
   // Only fall back to resuming an in-progress registration draft when
   // there's no specific deep link in the URL (i.e. someone just opened
   // the site fresh) — an explicit URL always wins.
-  if (currentPage === 'availability'){
+  if (currentPage === 'branches' || currentPage === 'availability'){
     const draft = loadRegDraft();
     if (draft && draft.regStep){
       currentPage = 'register';
       regStep = draft.regStep;
-      regFloor = draft.regFloor || 'F1';
+      regFloor = FLOORS.some(f=>f.id===draft.regFloor) ? draft.regFloor : FLOORS[0].id;
     }
   }
 
@@ -3127,7 +3310,7 @@ async function init(){
   await loadDataForPage(currentPage);
 
   history.replaceState(
-    { page: currentPage, regStep: currentPage === 'register' ? regStep : undefined },
+    { page: currentPage, regStep: currentPage === 'register' ? regStep : undefined, branch: currentBranchId },
     '',
     pathForPage(currentPage, regStep)
   );

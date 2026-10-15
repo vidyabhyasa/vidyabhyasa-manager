@@ -1,5 +1,6 @@
 import { sql } from '../lib/db.js';
 import { logAudit } from '../lib/audit.js';
+import { branchOfResource } from '../lib/layout.js';
 import { uploadToR2, newObjectKey, isR2Configured } from '../lib/r2.js';
 
 export default async function handler(req, res){
@@ -9,6 +10,13 @@ export default async function handler(req, res){
     const required = ['name', 'phone', 'email', 'examPrep', 'joinDate', 'durationMonths', 'seatId', 'amount', 'rulesAcceptedAt'];
     for (const k of required){
       if (b[k] === undefined || b[k] === null || b[k] === '') return res.status(400).json({ error: 'Missing field: ' + k });
+    }
+
+    const seatBranch = branchOfResource(b.seatId);
+    if (!seatBranch) return res.status(400).json({ error: 'That seat does not exist.' });
+    if (b.lockerId){
+      const lockerBranch = branchOfResource(b.lockerId);
+      if (!lockerBranch || lockerBranch.id !== seatBranch.id) return res.status(400).json({ error: 'That locker is not available at this branch.' });
     }
 
     // A seat/locker is held if it's an active student OR an
@@ -49,14 +57,14 @@ export default async function handler(req, res){
     const rows = await sql`
       insert into pending_registrations (
         name, phone, email, exam_prep, join_date, duration_months,
-        seat_id, floor, locker_id, locker_floor, locker_months, amount,
+        seat_id, floor, locker_id, locker_floor, locker_months, amount, branch_id,
         id_photo, id_photo_type, id_photo_key,
         payment_screenshot, payment_screenshot_type, payment_screenshot_key,
         rules_accepted_at, payment_method
       ) values (
         ${b.name}, ${b.phone}, ${b.email || null}, ${b.examPrep}, ${b.joinDate}, ${b.durationMonths},
-        ${b.seatId}, ${b.seatId.slice(0,2)}, ${b.lockerId || null}, ${b.lockerId ? b.lockerId.slice(0,2) : null},
-        ${b.lockerId ? b.lockerMonths : null}, ${b.amount},
+        ${b.seatId}, ${b.seatId.split('-')[0]}, ${b.lockerId || null}, ${b.lockerId ? b.lockerId.split('-')[0] : null},
+        ${b.lockerId ? b.lockerMonths : null}, ${b.amount}, ${seatBranch.id},
         ${idPhotoLegacy}, ${idPhotoLegacy ? 'image/jpeg' : null}, ${idPhotoKey},
         ${paymentShotLegacy}, ${paymentShotLegacy ? 'image/jpeg' : null}, ${paymentShotKey},
         ${b.rulesAcceptedAt}, ${paymentMethod}
@@ -66,7 +74,7 @@ export default async function handler(req, res){
     await logAudit({
       actorId: null, actorName: 'Student (online form)', action: 'new_registration',
       targetType: 'pending', targetId: rows[0].id,
-      details: b.name + ' submitted a registration — seat ' + b.seatId + (b.lockerId ? ', locker ' + b.lockerId : '') +
+      details: b.name + ' submitted a registration (' + seatBranch.name + ') — seat ' + b.seatId + (b.lockerId ? ', locker ' + b.lockerId : '') +
         ', ' + b.durationMonths + ' mo, ₹' + b.amount + ' (' + (paymentMethod === 'cash' ? 'Cash' : 'UPI') + ')'
     });
 

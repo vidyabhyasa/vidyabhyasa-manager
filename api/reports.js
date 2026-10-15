@@ -1,9 +1,6 @@
 import { sql } from '../lib/db.js';
 import { requireStaff } from '../lib/auth.js';
-import { FLOORS, LOCKERS } from '../lib/layout.js';
-
-const TOTAL_SEATS = FLOORS.reduce((a,f)=>a+f.count, 0);
-const TOTAL_LOCKERS = LOCKERS.reduce((a,f)=>a+f.count, 0);
+import { BRANCHES, FLOORS } from '../lib/layout.js';
 
 function daysUntil(dateStr, today){
   const t = new Date(today);
@@ -20,16 +17,28 @@ export default async function handler(req, res){
     const { from, to } = req.query;
     if (!from || !to) return res.status(400).json({ error: 'from and to dates required' });
 
-    const payments = await sql`select amount, note, date, payment_method as "paymentMethod" from payments where date >= ${from} and date <= ${to}`;
-    const newRegs = await sql`
-      select floor,
+    // branch = 'all' (default) or a branch id like 'tk' / 'rk'
+    const scope = req.query.branch && req.query.branch !== 'all' ? req.query.branch : 'all';
+    const scoped = scope === 'all' ? BRANCHES : BRANCHES.filter(b => b.id === scope);
+    if (!scoped.length) return res.status(400).json({ error: 'Unknown branch' });
+    const TOTAL_SEATS = scoped.reduce((a,b)=>a + b.floors.reduce((x,f)=>x+f.count,0), 0);
+    const TOTAL_LOCKERS = scoped.reduce((a,b)=>a + b.lockers.reduce((x,f)=>x+f.count,0), 0);
+    const inScope = (branchId) => scope === 'all' || branchId === scope;
+
+    const paymentsAll = await sql`
+      select p.amount, p.note, p.date, p.payment_method as "paymentMethod", s.branch_id as "branchId"
+      from payments p join students s on s.id = p.student_id
+      where p.date >= ${from} and p.date <= ${to}`;
+    const payments = paymentsAll.filter(p => inScope(p.branchId));
+    let newRegs = await sql`
+      select floor, branch_id as "branchId",
              duration_months as "durationMonths",
              locker_id as "lockerId",
              exam_prep as "examPrep"
       from students
       where join_date >= ${from} and join_date <= ${to}`;
-    const allStudents = await sql`
-      select floor, locker_id as "lockerId", expiry_date as "expiryDate", locker_expiry_date as "lockerExpiryDate"
+    let allStudents = await sql`
+      select floor, branch_id as "branchId", locker_id as "lockerId", expiry_date as "expiryDate", locker_expiry_date as "lockerExpiryDate"
       from students`;
 
     let totalRevenue = 0, registrationRevenue = 0, renewalRevenue = 0, lockerRevenue = 0;
@@ -45,6 +54,10 @@ export default async function handler(req, res){
       else upiRevenue += amt;
     });
 
+    const newRegsAll = newRegs;
+    const allStudentsAll = allStudents;
+    newRegs = newRegs.filter(r => inScope(r.branchId));
+    allStudents = allStudents.filter(s => inScope(s.branchId));
     const newRegistrations = newRegs.length;
     const lockerAttachCountNew = newRegs.filter(r=>r.lockerId).length;
     const avgDurationMonths = newRegistrations
@@ -76,15 +89,29 @@ export default async function handler(req, res){
       else if (d <= 2) warningCount++;
     });
 
-    const cleanupPending = await sql`select count(*)::int as c from cleanup_flags where cleared_at is null`;
+    const scopedFloorIds = scoped.flatMap(b => [...b.floors.map(f=>f.id), ...b.lockers.map(f=>f.id)]);
+    const cleanupPending = await sql`select count(*)::int as c from cleanup_flags where cleared_at is null and floor = any(${scopedFloorIds})`;
     const needsCleaning = cleanupPending[0] ? cleanupPending[0].c : 0;
 
-    const openCharges = await sql`select amount_due, amount_paid from charges where status = 'open'`;
+    const openCharges = scope === 'all'
+      ? await sql`select amount_due, amount_paid from charges where status = 'open'`
+      : await sql`select c.amount_due, c.amount_paid from charges c join students s on s.id = c.student_id where c.status = 'open' and s.branch_id = ${scope}`;
     const outstandingBalance = openCharges.reduce((a,c)=>a + (Number(c.amount_due) - Number(c.amount_paid)), 0);
     const openChargesCount = openCharges.length;
 
     res.status(200).json({
       range: { from, to },
+      branch: scope,
+      byBranch: BRANCHES.map(b => {
+        const bp = paymentsAll.filter(p => p.branchId === b.id);
+        return {
+          id: b.id, name: b.name,
+          revenue: bp.reduce((a,p)=>a+Number(p.amount),0),
+          payments: bp.length,
+          newRegistrations: newRegsAll.filter(r => r.branchId === b.id).length,
+          activeStudents: allStudentsAll.filter(s => s.branchId === b.id).length
+        };
+      }),
       revenue: {
         total: totalRevenue,
         registration: registrationRevenue,
