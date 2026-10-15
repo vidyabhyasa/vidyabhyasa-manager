@@ -1,4 +1,4 @@
-import { sql, addMonths, todayISO, toDateStr } from '../lib/db.js';
+import { sql, addDays, periodEnd, todayISO, toDateStr } from '../lib/db.js';
 import { requireStaff } from '../lib/auth.js';
 import { sendEmail, billEmailHTML } from '../lib/email.js';
 import { logAudit } from '../lib/audit.js';
@@ -27,6 +27,7 @@ export default async function handler(req, res){
     if (action === 'resendBill') return await doResendBill(req, res, session);
     if (action === 'generateBillToken') return await doGenerateBillToken(req, res, session);
     if (action === 'uploadIdPhoto') return await doUploadIdPhoto(req, res, session);
+    if (action === 'attachPaymentScreenshot') return await doAttachPaymentScreenshot(req, res, session);
     if (action === 'editPayment') return await doEditPayment(req, res, session);
     if (action === 'deletePayment') return await doDeletePayment(req, res, session);
     return res.status(400).json({ error: 'Unknown or missing action' });
@@ -43,13 +44,14 @@ async function applyChargeExtension(student, resourceType, months){
   const today = todayISO();
   if (resourceType === 'seat'){
     const currentExpiry = toDateStr(student.expiry_date);
-    const base = currentExpiry < today ? today : currentExpiry;
-    const newExpiry = addMonths(base, months);
+    // Renewal starts the day after the current last day (or today if already lapsed).
+    const start = currentExpiry < today ? today : addDays(currentExpiry, 1);
+    const newExpiry = periodEnd(start, months);
     await sql`update students set expiry_date = ${newExpiry} where id = ${student.id}`;
   } else {
     const currentLockerExpiry = toDateStr(student.locker_expiry_date);
-    const base = (currentLockerExpiry && currentLockerExpiry < today) ? today : currentLockerExpiry;
-    const newLockerExpiry = addMonths(base, months);
+    const start = (!currentLockerExpiry || currentLockerExpiry < today) ? today : addDays(currentLockerExpiry, 1);
+    const newLockerExpiry = periodEnd(start, months);
     await sql`update students set locker_expiry_date = ${newLockerExpiry} where id = ${student.id}`;
   }
 }
@@ -212,7 +214,7 @@ async function doLocker(req, res, session){
   if (taken.length) return res.status(409).json({ error: 'That locker was just taken. Please pick another.' });
 
   const today = todayISO();
-  const lockerExpiry = addMonths(today, months);
+  const lockerExpiry = periodEnd(today, months);
 
   await sql`
     update students set
@@ -383,6 +385,26 @@ async function doUploadIdPhoto(req, res, session){
     details: student.name + ' — ID photo uploaded by staff'
   });
 
+  res.status(200).json({ ok: true });
+}
+
+async function doAttachPaymentScreenshot(req, res, session){
+  const { paymentId, photoBase64 } = req.body || {};
+  if (!paymentId || !photoBase64) return res.status(400).json({ error: 'paymentId and photoBase64 required' });
+  if (!isR2Configured()) return res.status(400).json({ error: 'Cloudflare R2 is not configured' });
+  const rows = await sql`select p.id, p.amount, s.name from payments p join students s on s.id = p.student_id where p.id = ${paymentId}`;
+  if (!rows[0]) return res.status(404).json({ error: 'Payment not found' });
+
+  const buffer = Buffer.from(photoBase64.split(',').pop(), 'base64');
+  const key = newObjectKey('payment-screenshots');
+  await uploadToR2(key, buffer, 'image/jpeg');
+  await sql`update payments set screenshot_key = ${key} where id = ${paymentId}`;
+
+  await logAudit({
+    actorId: session.id, actorName: session.label, action: 'attach_screenshot',
+    targetType: 'payment', targetId: paymentId,
+    details: rows[0].name + ' — screenshot added to ₹' + rows[0].amount + ' payment'
+  });
   res.status(200).json({ ok: true });
 }
 

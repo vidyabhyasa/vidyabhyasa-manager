@@ -1,4 +1,5 @@
 import { sql } from '../lib/db.js';
+import { logAudit } from '../lib/audit.js';
 import { uploadToR2, newObjectKey, isR2Configured } from '../lib/r2.js';
 
 export default async function handler(req, res){
@@ -61,6 +62,13 @@ export default async function handler(req, res){
         ${b.rulesAcceptedAt}, ${paymentMethod}
       )
       returning id`;
+
+    await logAudit({
+      actorId: null, actorName: 'Student (online form)', action: 'new_registration',
+      targetType: 'pending', targetId: rows[0].id,
+      details: b.name + ' submitted a registration — seat ' + b.seatId + (b.lockerId ? ', locker ' + b.lockerId : '') +
+        ', ' + b.durationMonths + ' mo, ₹' + b.amount + ' (' + (paymentMethod === 'cash' ? 'Cash' : 'UPI') + ')'
+    });
 
     res.status(200).json({ id: rows[0].id, status: 'pending' });
   }catch(err){

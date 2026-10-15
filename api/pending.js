@@ -1,4 +1,4 @@
-import { sql, addMonths, todayISO, toDateStr, toImageBuffer } from '../lib/db.js';
+import { sql, periodEnd, todayISO, toDateStr, toImageBuffer } from '../lib/db.js';
 import { requireStaff } from '../lib/auth.js';
 import { sendEmail, billEmailHTML } from '../lib/email.js';
 import { logAudit } from '../lib/audit.js';
@@ -130,8 +130,8 @@ async function doApprove(req, res, session){
 
   const today = todayISO();
   const joinDate = toDateStr(p.join_date);
-  const expiryDate = addMonths(joinDate, p.duration_months);
-  const lockerExpiry = p.locker_id ? addMonths(joinDate, p.locker_months) : null;
+  const expiryDate = periodEnd(joinDate, p.duration_months);
+  const lockerExpiry = p.locker_id ? periodEnd(joinDate, p.locker_months) : null;
   // If this pending request already has an R2 key, just copy the
   // reference — no bytes to move at all. Otherwise (a record from
   // before R2 was set up) fall back to normalizing and copying the
@@ -156,8 +156,8 @@ async function doApprove(req, res, session){
 
   const methodValue = p.payment_method === 'cash' ? 'cash' : 'upi';
   await sql`
-    insert into payments (student_id, date, amount, note, payment_method)
-    values (${studentId}, ${today}, ${p.amount}, ${p.locker_id ? 'Registration — seat + locker' : 'Registration — seat'}, ${methodValue})`;
+    insert into payments (student_id, date, amount, note, payment_method, screenshot_key)
+    values (${studentId}, ${today}, ${p.amount}, ${p.locker_id ? 'Registration — seat + locker' : 'Registration — seat'}, ${methodValue}, ${p.payment_screenshot_key || null})`;
 
   // Grant the full requested duration immediately regardless of how
   // much was actually paid — if it's less than what's due, track the

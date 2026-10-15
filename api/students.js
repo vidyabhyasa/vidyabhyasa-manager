@@ -33,7 +33,8 @@ async function doList(req, res){
     from students
     order by expiry_date asc`;
   const payments = await sql`
-    select id, student_id as "studentId", to_char(date,'YYYY-MM-DD') as date, amount, note, payment_method as "paymentMethod"
+    select id, student_id as "studentId", to_char(date,'YYYY-MM-DD') as date, amount, note, payment_method as "paymentMethod",
+           (screenshot_key is not null) as "hasScreenshot"
     from payments
     order by payments.date asc, created_at asc`;
   const charges = await sql`
@@ -48,6 +49,17 @@ async function doList(req, res){
 async function doPhoto(req, res){
   const { id } = req.query;
   if (!id) return res.status(400).json({ error: 'id required' });
+
+  // Payment screenshot for one payment row (Payment history)
+  if (req.query.payment){
+    const prow = (await sql`select screenshot_key from payments where id = ${id}`)[0];
+    if (!prow || !prow.screenshot_key) return res.status(404).end();
+    const pobj = await fetchFromR2(prow.screenshot_key);
+    if (!pobj) return res.status(404).end();
+    res.setHeader('Content-Type', pobj.contentType);
+    res.setHeader('Cache-Control', 'private, max-age=60');
+    return res.status(200).send(pobj.buffer);
+  }
 
   const rows = await sql`select id_photo, id_photo_type, id_photo_key from students where id = ${id}`;
   const row = rows[0];

@@ -428,9 +428,13 @@ function formatDateTimeIST(v){
   return d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
 }
 function addMonths(dateStr, months){
-  const d = new Date(String(dateStr).slice(0,10) + 'T00:00:00Z');
-  d.setUTCMonth(d.getUTCMonth() + Number(months));
-  return d.toISOString().slice(0,10);
+  // Subscription end date (inclusive): 15 Oct + 1 month => 14 Nov
+  const [y, m, day] = String(dateStr).slice(0,10).split('-').map(Number);
+  const total = (m - 1) + Number(months);
+  const ty = y + Math.floor(total / 12), tm = ((total % 12) + 12) % 12;
+  const lastDay = new Date(Date.UTC(ty, tm + 1, 0)).getUTCDate();
+  const end = new Date(Date.UTC(ty, tm, Math.min(day, lastDay) - 1));
+  return end.toISOString().slice(0,10);
 }
 function daysUntil(dateStr){
   const today = new Date(todayISO());
@@ -666,7 +670,7 @@ async function loadFullStudents(){
     const data = await apiGet('/api/students');
     const paymentsByStudent = {};
     (data.payments || []).forEach(p=>{
-      (paymentsByStudent[p.studentId] = paymentsByStudent[p.studentId] || []).push({ id: p.id, date: p.date, amount: Number(p.amount), note: p.note, paymentMethod: p.paymentMethod });
+      (paymentsByStudent[p.studentId] = paymentsByStudent[p.studentId] || []).push({ id: p.id, date: p.date, amount: Number(p.amount), note: p.note, paymentMethod: p.paymentMethod, hasScreenshot: !!p.hasScreenshot });
     });
     const chargesByStudent = {};
     (data.charges || []).forEach(c=>{
@@ -1527,7 +1531,7 @@ function timeAgo(isoString){
 
 function renderAuditLog(){
   const actionLabels = {
-    approve_pending: 'Approved registration', reject_pending: 'Rejected registration',
+    new_registration: 'New registration submitted', attach_screenshot: 'Added payment screenshot', approve_pending: 'Approved registration', reject_pending: 'Rejected registration',
     edit_pending: 'Edited pending request', edit_student: 'Edited student details',
     remove_student: 'Removed student', record_payment: 'Recorded payment',
     edit_payment: 'Edited payment', delete_payment: 'Deleted payment',
@@ -1705,7 +1709,8 @@ function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
 // Image viewing — enlarge in-page (no new tab/window) with a
 // loading spinner until the image actually arrives.
 // ============================================================
-function showImageLightbox(src, title){
+function showImageLightbox(src, title, onClose){
+  const closeFn = onClose || closeModal;
   const modalRoot = document.getElementById('modal-root');
   modalRoot.innerHTML = `
     <div class="modal-overlay" id="lightbox-ov" style="z-index:200;">
@@ -1719,8 +1724,8 @@ function showImageLightbox(src, title){
       </div>
     </div>`;
   const ov = document.getElementById('lightbox-ov');
-  ov.onclick = (e)=>{ if (e.target.id==='lightbox-ov') closeModal(); };
-  document.getElementById('lightbox-close').onclick = closeModal;
+  ov.onclick = (e)=>{ if (e.target.id==='lightbox-ov') closeFn(); };
+  document.getElementById('lightbox-close').onclick = closeFn;
 
   const img = document.getElementById('lightbox-img');
   const loader = document.getElementById('lightbox-loader');
@@ -2465,7 +2470,7 @@ function showShareBillModal(studentId){
         <h3>Share bill</h3>
         <p style="color:var(--muted);font-size:13px;margin:6px 0 16px;">${s.name}</p>
         <div class="modal-actions" style="flex-direction:column;align-items:stretch;">
-          ${s.email ? `<button class="btn" id="resend-email-btn" style="justify-content:center;">Share by email</button>` : `<p style="font-size:12px;color:var(--muted);">No email on file — QR option only.</p>`}
+          <button class="btn" id="copy-link-btn" style="justify-content:center;">Copy link</button>
           <button class="btn btn-outline" id="show-qr-btn" style="justify-content:center;">Show QR to scan</button>
           <button class="btn btn-outline" id="close-modal" style="justify-content:center;">Close</button>
         </div>
@@ -2475,16 +2480,27 @@ function showShareBillModal(studentId){
   document.getElementById('close-modal').onclick = closeModal;
   document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
 
-  const resendBtn = document.getElementById('resend-email-btn');
-  if (resendBtn) resendBtn.onclick = async ()=>{
-    resendBtn.disabled = true; resendBtn.textContent = 'Sending…';
+  const copyBtn = document.getElementById('copy-link-btn');
+  copyBtn.onclick = async ()=>{
+    copyBtn.disabled = true; copyBtn.textContent = 'Generating…';
     try{
-      const result = await apiPost('/api/student-actions', { action: 'resendBill', studentId });
-      showToast(result.emailSent ? 'Bill emailed to ' + s.email : 'Failed to send: ' + (result.emailReason||'unknown error'));
-      closeModal();
+      const result = await apiPost('/api/student-actions', { action: 'generateBillToken', studentId });
+      const billUrl = window.location.origin + '/api/bill?token=' + encodeURIComponent(result.token);
+      let copied = false;
+      try{ await navigator.clipboard.writeText(billUrl); copied = true; }catch(e){}
+      if (!copied){
+        const ta = document.createElement('textarea');
+        ta.value = billUrl; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        try{ copied = document.execCommand('copy'); }catch(e){}
+        ta.remove();
+      }
+      if (copied) showToast('Bill link copied');
+      else window.prompt('Copy this bill link:', billUrl);
     }catch(err){
-      showToast(err.message || 'Failed to send email');
-      resendBtn.disabled = false; resendBtn.textContent = 'Share by email';
+      showToast(err.message || 'Failed to generate link');
+    }finally{
+      copyBtn.disabled = false; copyBtn.textContent = 'Copy link';
     }
   };
 
@@ -2514,7 +2530,8 @@ function showPaymentHistoryModal(studentId){
   const isFounder = session && session.role === 'founder';
   const rows = (s.payments || []).slice().reverse().map((p,idx)=>`
     <div class="row" data-payment-idx="${idx}">
-      <span>${formatDateHuman(p.date)} — ${p.note||''} <span class="badge pending" style="text-transform:capitalize;">${p.paymentMethod || 'upi'}</span></span>
+      <span>${formatDateHuman(p.date)} — ${p.note||''} <span class="badge pending" style="text-transform:capitalize;">${p.paymentMethod || 'upi'}</span>
+        ${p.id && p.hasScreenshot ? `<br><button class="btn btn-sm btn-outline" style="margin-top:6px;" data-viewss="${p.id}">View screenshot</button>` : (p.id && (p.paymentMethod || 'upi') === 'upi' ? `<br><button class="btn btn-sm btn-outline" style="margin-top:6px;" data-addss="${p.id}">Add screenshot</button>` : '')}</span>
       <span>₹${p.amount}${isFounder && p.id ? ` <button class="btn btn-sm btn-outline" data-editpay="${p.id}" data-amount="${p.amount}" data-note="${(p.note||'').replace(/"/g,'&quot;')}" data-method="${p.paymentMethod||'upi'}">Edit</button> <button class="btn btn-sm btn-outline" data-deletepay="${p.id}">Delete</button>` : ''}</span>
     </div>
   `).join('');
@@ -2534,6 +2551,28 @@ function showPaymentHistoryModal(studentId){
     </div>`;
   document.getElementById('close-modal').onclick = closeModal;
   document.getElementById('ov').onclick = (e)=>{ if (e.target.id==='ov') closeModal(); };
+  document.querySelectorAll('[data-viewss]').forEach(el=>{
+    el.onclick = ()=> showImageLightbox('/api/students?photo=1&payment=1&id=' + el.dataset.viewss, 'Payment screenshot', ()=> showPaymentHistoryModal(studentId));
+  });
+  const ssPicker = document.createElement('input');
+  ssPicker.type = 'file'; ssPicker.accept = 'image/*';
+  let ssPaymentId = null;
+  ssPicker.onchange = async ()=>{
+    const file = ssPicker.files[0];
+    if (!file || !ssPaymentId) return;
+    try{
+      showToast('Uploading screenshot…');
+      const raw = await readFileAsDataURL(file);
+      const resized = await resizeImageDataURL(raw, 900, 0.72);
+      await apiPost('/api/student-actions', { action: 'attachPaymentScreenshot', paymentId: ssPaymentId, photoBase64: resized });
+      await loadFullStudents();
+      showPaymentHistoryModal(studentId);
+      showToast('Screenshot added');
+    }catch(err){ showToast(err.message || 'Could not add screenshot'); }
+  };
+  document.querySelectorAll('[data-addss]').forEach(el=>{
+    el.onclick = ()=>{ ssPaymentId = el.dataset.addss; ssPicker.value = ''; ssPicker.click(); };
+  });
   document.querySelectorAll('[data-editpay]').forEach(el=>{
     el.onclick = ()=> showEditPaymentModal(studentId, el.dataset.editpay, el.dataset.amount, el.dataset.note, el.dataset.method);
   });
@@ -2654,7 +2693,11 @@ function wireLoginForm(){
 
 function attachHandlers(){
   document.querySelectorAll('.nav-item').forEach(el=>{
-    el.onclick = ()=> navigateTo(el.dataset.page);
+    el.onclick = ()=>{
+      // Opening "New registration" from the menu always starts a fresh one.
+      if (el.dataset.page === 'register'){ clearRegDraft(); regStep = 1; }
+      navigateTo(el.dataset.page);
+    };
   });
 
   if (GATED_PAGES.includes(currentPage) && !session){
